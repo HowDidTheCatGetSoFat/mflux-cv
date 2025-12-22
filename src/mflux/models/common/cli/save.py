@@ -10,6 +10,7 @@ from mflux.models.ideogram4.weights.ideogram4_weight_definition import Ideogram4
 from mflux.models.krea2.variants.txt2img.krea2 import Krea2
 from mflux.models.qwen.variants.edit.qwen_image_edit import QwenImageEdit
 from mflux.models.qwen.variants.txt2img.qwen_image import QwenImage
+from mflux.models.qwen_layered.variants.i2l.qwen_image_layered import QwenImageLayered
 from mflux.models.z_image import ZImage, ZImageTurbo
 
 
@@ -27,6 +28,8 @@ def main():
         model_class = BooguImage
     elif "ernie" in model_name_lower:
         model_class = ErnieImage
+    elif "qwen" in model_name_lower and "layered" in model_name_lower:
+        model_class = QwenImageLayered
     elif "qwen" in model_name_lower and "edit" in model_name_lower:
         model_class = QwenImageEdit
     elif "qwen" in model_name_lower:
