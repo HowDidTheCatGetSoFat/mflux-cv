@@ -43,6 +43,7 @@ class WeightLoader:
         weight_definition: "WeightDefinitionType",
         model_path: str | None = None,
         download_patterns: list[str] | None = None,
+        path_overrides: dict[str, str] | None = None,
     ) -> LoadedWeights:
         # download_patterns lets a caller supply variant-aware HF allow_patterns (e.g. Krea 2 Turbo
         # vs Raw need different transformer layouts); otherwise fall back to the definition's default.
@@ -51,17 +52,32 @@ class WeightLoader:
             patterns=download_patterns if download_patterns is not None else weight_definition.get_download_patterns(),
         )
 
-        # 2. Load each component (with caching for shared sources)
         components = {}
         quantization_level = None
         mflux_version = None
+        component_quantization_levels: dict[str, int | None] = {}
         raw_weights_cache: dict[tuple, dict] = {}  # Cache by (path, loading_mode, weight_files)
 
         for component in weight_definition.get_components():
-            weights, q_level, version = WeightLoader._load_component(root_path, component, raw_weights_cache)
+            if path_overrides and component.name in path_overrides:
+                override_root = Path(path_overrides[component.name])
+                if not override_root.exists():
+                    raise FileNotFoundError(
+                        f"--model-{component.name.replace('_', '-')}: path does not exist: {override_root}"
+                    )
+                component_path = override_root / component.hf_subdir
+                if not component_path.exists():
+                    raise FileNotFoundError(
+                        f"--model-{component.name.replace('_', '-')}: expected '{component.hf_subdir}/' subdirectory "
+                        f"not found in {override_root}"
+                    )
+                weights, q_level, version = WeightLoader._load_component(override_root, component)
+                component_quantization_levels[component.name] = q_level
+            else:
+                weights, q_level, version = WeightLoader._load_component(root_path, component, raw_weights_cache)
+
             components[component.name] = weights
 
-            # Track metadata from first component that has it
             if quantization_level is None and q_level is not None:
                 quantization_level = q_level
                 mflux_version = version
@@ -71,6 +87,7 @@ class WeightLoader:
             meta_data=MetaData(
                 quantization_level=quantization_level,
                 mflux_version=mflux_version,
+                component_quantization_levels=component_quantization_levels,
             ),
         )
 

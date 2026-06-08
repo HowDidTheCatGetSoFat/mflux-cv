@@ -30,6 +30,8 @@ class Flux2KleinEdit(nn.Module):
         lora_scales: list[float] | None = None,
         bake_lora: bool = True,
         model_config: ModelConfig | None = None,
+        transformer_path: str | None = None,
+        text_encoder_path: str | None = None,
     ):
         super().__init__()
         Flux2Initializer.init(
@@ -40,6 +42,8 @@ class Flux2KleinEdit(nn.Module):
             lora_scales=lora_scales,
             bake_lora=bake_lora,
             model_config=model_config or ModelConfig.flux2_klein_4b(),
+            transformer_path=transformer_path,
+            text_encoder_path=text_encoder_path,
         )
 
     def generate_image(
