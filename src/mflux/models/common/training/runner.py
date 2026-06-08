@@ -26,6 +26,7 @@ from mflux.models.common.vae.tiling_config import TilingConfig
 from mflux.models.ernie_image.training_adapter.ernie_training_adapter import ErnieTrainingAdapter
 from mflux.models.flux2.training_adapter.flux2_edit_training_adapter import Flux2EditTrainingAdapter
 from mflux.models.flux2.training_adapter.flux2_training_adapter import Flux2TrainingAdapter
+from mflux.models.flux.training_adapter.flux1_training_adapter import Flux1TrainingAdapter
 from mflux.models.z_image.training_adapter.z_image_training_adapter import ZImageTrainingAdapter
 from mflux.utils.exceptions import StopTrainingException
 
@@ -72,6 +73,7 @@ class TrainingRunner:
         }
         is_flux2 = model_config.model_name.startswith("black-forest-labs/FLUX.2")
         is_flux2_base = model_config.model_name.startswith("black-forest-labs/FLUX.2-klein-base")
+        is_flux1 = model_config.model_name.startswith("black-forest-labs/FLUX.1")
         if training_spec.is_edit and not is_flux2_base:
             raise ValueError("Edit training currently supports only FLUX.2-klein-base models.")
         if is_ernie:
@@ -90,8 +92,12 @@ class TrainingRunner:
             adapter = Flux2TrainingAdapter(
                 model_config=model_config, quantize=training_spec.quantize, model_path=training_spec.model_path
             )
+        elif is_flux1:
+            adapter = Flux1TrainingAdapter(
+                model_config=model_config, quantize=training_spec.quantize, model_path=training_spec.model_path
+            )
         else:
-            raise ValueError("Flux1 training is no longer supported.")
+            raise ValueError(f"Unsupported model for training: {model_config.model_name}")
 
         if training_spec.low_ram:
             model = adapter.model()
