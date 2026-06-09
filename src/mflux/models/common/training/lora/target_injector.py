@@ -15,6 +15,17 @@ from mflux.models.common.training.state.training_spec import LoraTargetSpec
 
 
 def inject_lora_targets(transformer: Any, targets: list[LoraTargetSpec]) -> None:
+    # Ideogram-4 ships fp8-quantized layers (Fp8Linear). LoRALinear.from_linear already
+    # handles them (weight.shape is the true (out, in); the 32//bits scaling only applies
+    # to nn.QuantizedLinear), so QLoRA training works once injection recognizes the type.
+    # Late, guarded import to avoid an import cycle / hard dependency on the ideogram package.
+    try:
+        from mflux.models.ideogram4.model.ideogram4_transformer.fp8_linear import Fp8Linear
+
+        linear_types: tuple = (nn.Linear, nn.QuantizedLinear, Fp8Linear)
+    except Exception:
+        linear_types = (nn.Linear, nn.QuantizedLinear)
+
     expanded = expand_module_paths_from_targets(targets)
     for module_path, rank in expanded:
         current = get_at_path(transformer, module_path)
@@ -27,7 +38,7 @@ def inject_lora_targets(transformer: Any, targets: list[LoraTargetSpec]) -> None
             if any(getattr(lora, "_mflux_lora_role", None) == "train" for lora in current.loras):
                 continue
 
-        if isinstance(current, (nn.Linear, nn.QuantizedLinear)):
+        if isinstance(current, linear_types):
             wrapped = LoRALinear.from_linear(current, r=rank)
             wrapped._mflux_lora_role = "train"
             set_at_path(transformer, module_path, wrapped)
@@ -45,5 +56,6 @@ def inject_lora_targets(transformer: Any, targets: list[LoraTargetSpec]) -> None
             set_at_path(transformer, module_path, fused)
         else:
             raise TypeError(
-                f"LoRA target '{module_path}' must resolve to nn.Linear or nn.QuantizedLinear, got {type(current)}"
+                f"LoRA target '{module_path}' must resolve to nn.Linear, nn.QuantizedLinear "
+                f"or Fp8Linear, got {type(current)}"
             )

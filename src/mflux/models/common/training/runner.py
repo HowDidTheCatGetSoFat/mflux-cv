@@ -27,6 +27,7 @@ from mflux.models.ernie_image.training_adapter.ernie_training_adapter import Ern
 from mflux.models.flux2.training_adapter.flux2_edit_training_adapter import Flux2EditTrainingAdapter
 from mflux.models.flux2.training_adapter.flux2_training_adapter import Flux2TrainingAdapter
 from mflux.models.flux.training_adapter.flux1_training_adapter import Flux1TrainingAdapter
+from mflux.models.ideogram4.training_adapter.ideogram4_training_adapter import Ideogram4TrainingAdapter
 from mflux.models.z_image.training_adapter.z_image_training_adapter import ZImageTrainingAdapter
 from mflux.utils.exceptions import StopTrainingException
 
@@ -74,6 +75,7 @@ class TrainingRunner:
         is_flux2 = model_config.model_name.startswith("black-forest-labs/FLUX.2")
         is_flux2_base = model_config.model_name.startswith("black-forest-labs/FLUX.2-klein-base")
         is_flux1 = model_config.model_name.startswith("black-forest-labs/FLUX.1")
+        is_ideogram = model_config.model_name.startswith("ideogram-ai/ideogram-4")
         if training_spec.is_edit and not is_flux2_base:
             raise ValueError("Edit training currently supports only FLUX.2-klein-base models.")
         if is_ernie:
@@ -94,6 +96,10 @@ class TrainingRunner:
             )
         elif is_flux1:
             adapter = Flux1TrainingAdapter(
+                model_config=model_config, quantize=training_spec.quantize, model_path=training_spec.model_path
+            )
+        elif is_ideogram:
+            adapter = Ideogram4TrainingAdapter(
                 model_config=model_config, quantize=training_spec.quantize, model_path=training_spec.model_path
             )
         else:
