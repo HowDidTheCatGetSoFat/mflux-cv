@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import mlx.core as mx
 import mlx.nn as nn
 
 from mflux.models.common.lora.layer.fused_linear_lora_layer import FusedLoRALinear
@@ -14,16 +15,30 @@ from mflux.models.common.training.lora.path_util import (
 from mflux.models.common.training.state.training_spec import LoraTargetSpec
 
 
+def _fp8_to_bf16_linear(fp8) -> nn.Linear:
+    # Dequantize an Fp8Linear (e4m3 uint8 weights + per-row float32 scale) to a plain bf16
+    # nn.Linear, exactly like ai-toolkit's _dequantize_fp8_state_dict. We train the LoRA over
+    # this clean bf16 base instead of the raw fp8 layer: fp8's 3-bit-mantissa per-channel
+    # rounding error on the frozen base is a source of painterly texture in the trained LoRA.
+    w = mx.from_fp8(fp8.weight, dtype=mx.float32) * fp8.weight_scale.astype(mx.float32)[:, None]
+    lin = nn.Linear(fp8.in_features, fp8.out_features, bias=fp8.bias is not None)
+    lin.weight = w.astype(mx.bfloat16)
+    if fp8.bias is not None:
+        lin.bias = fp8.bias.astype(mx.bfloat16)
+    return lin
+
+
 def inject_lora_targets(transformer: Any, targets: list[LoraTargetSpec]) -> None:
-    # Ideogram-4 ships fp8-quantized layers (Fp8Linear). LoRALinear.from_linear already
-    # handles them (weight.shape is the true (out, in); the 32//bits scaling only applies
-    # to nn.QuantizedLinear), so QLoRA training works once injection recognizes the type.
+    # Ideogram-4 ships fp8-quantized layers (Fp8Linear). We recognize them, and (below)
+    # dequantize each LoRA-target layer to a bf16 nn.Linear before wrapping, so the LoRA
+    # trains over a clean bf16 base like ai-toolkit (not over the lossy fp8 layer).
     # Late, guarded import to avoid an import cycle / hard dependency on the ideogram package.
     try:
         from mflux.models.ideogram4.model.ideogram4_transformer.fp8_linear import Fp8Linear
 
         linear_types: tuple = (nn.Linear, nn.QuantizedLinear, Fp8Linear)
     except Exception:
+        Fp8Linear = None
         linear_types = (nn.Linear, nn.QuantizedLinear)
 
     expanded = expand_module_paths_from_targets(targets)
@@ -39,7 +54,10 @@ def inject_lora_targets(transformer: Any, targets: list[LoraTargetSpec]) -> None
                 continue
 
         if isinstance(current, linear_types):
-            wrapped = LoRALinear.from_linear(current, r=rank)
+            base = current
+            if Fp8Linear is not None and isinstance(current, Fp8Linear):
+                base = _fp8_to_bf16_linear(current)  # train over a clean bf16 base, not fp8
+            wrapped = LoRALinear.from_linear(base, r=rank)
             wrapped._mflux_lora_role = "train"
             set_at_path(transformer, module_path, wrapped)
         elif isinstance(current, LoRALinear):

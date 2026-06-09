@@ -69,7 +69,7 @@ class ZImageTrainingAdapter(TrainingAdapter):
         mx.eval(clean_latents, cap_feats)
         return clean_latents, cap_feats
 
-    def predict_noise(self, *, t: int, latents_t: mx.array, sigmas: mx.array, cond: Any, config: Config) -> mx.array:  # noqa: ARG002
+    def predict_noise(self, *, t: int, latents_t: mx.array, sigmas: mx.array, cond: Any, config: Config, sigma: float | None = None) -> mx.array:  # noqa: ARG002
         return self._z.transformer(timestep=t, x=latents_t, cap_feats=cond, sigmas=sigmas)
 
     def generate_preview_image(

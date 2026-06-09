@@ -66,6 +66,15 @@ class Ideogram4TrainingAdapter(TrainingAdapter):
         if getattr(self._ideo, "text_encoder", None) is not None:
             self._ideo.text_encoder.freeze()
 
+    def sample_sigma(self, *, width: int, height: int, rng) -> float:  # noqa: ARG002
+        # ai-toolkit's Ideogram-4 recipe samples timesteps UNIFORMLY: timestep_type='linear'
+        # grid linspace(1000,1,1000) + balanced uniform index, with NO loss weighting. So
+        # sigma == t01 == timestep/1000, uniform in (0,1). (The inference logit-normal schedule
+        # is the WRONG prior for the training loss — its mass piles up near sigma 0/1, which is
+        # what produced the painterly / low-fidelity LoRAs; this is the corrected recipe.)
+        t01 = rng.randint(1, 1000) / 1000.0
+        return float(min(max(t01, 1e-3), 1.0 - 1e-3))
+
     def encode_data(
         self,
         *,
@@ -120,13 +129,16 @@ class Ideogram4TrainingAdapter(TrainingAdapter):
         }
         return clean_latents, cond
 
-    def predict_noise(self, *, t: int, latents_t: mx.array, sigmas: mx.array, cond: Any, config: Config) -> mx.array:  # noqa: ARG002
+    def predict_noise(self, *, t: int, latents_t: mx.array, sigmas: mx.array, cond: Any, config: Config, sigma: float | None = None) -> mx.array:  # noqa: ARG002
         # Ideogram-4 parametrizes its flow by the CLEAN fraction: z_t = t*clean + (1-t)*noise,
         # so the timestep is 1 - sigma (sigma = the trainer's NOISE fraction), and the model
         # predicts the velocity toward clean (clean - noise). The generic loss expects
         # (noise - clean), so we feed t = 1 - sigma and negate the output. (Verified by an
         # empirical timestep/sign sweep: cosine(-out, noise-clean) peaks ~+0.8 at t = 1-sigma.)
-        t_arr = mx.full((1,), 1.0 - float(sigmas[t]), dtype=mx.float32)
+        # sigma is the continuous logit-normal draw from sample_sigma; fall back to the
+        # index grid only if the trainer didn't provide it.
+        sig = float(sigma) if sigma is not None else float(sigmas[t])
+        t_arr = mx.full((1,), 1.0 - sig, dtype=mx.float32)
         pos_z = mx.concatenate([cond["text_z_padding"], latents_t], axis=1)
         out = self._ideo.conditional_transformer(
             llm_features=cond["llm_features"],

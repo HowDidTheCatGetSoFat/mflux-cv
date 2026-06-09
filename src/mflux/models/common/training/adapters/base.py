@@ -32,7 +32,7 @@ class TrainingAdapter(Protocol):
     ) -> tuple[mx.array, Any]: ...
 
     def predict_noise(
-        self, *, t: int, latents_t: mx.array, sigmas: mx.array, cond: Any, config: Config
+        self, *, t: int, latents_t: mx.array, sigmas: mx.array, cond: Any, config: Config, sigma: float | None = None
     ) -> mx.array: ...
 
     def generate_preview_image(

@@ -72,7 +72,7 @@ class ErnieTrainingAdapter(TrainingAdapter):
         mx.eval(clean_latents, text_bth, text_lens)
         return clean_latents, {"text_bth": text_bth, "text_lens": text_lens}
 
-    def predict_noise(self, *, t: int, latents_t: mx.array, sigmas: mx.array, cond: Any, config: Config) -> mx.array:
+    def predict_noise(self, *, t: int, latents_t: mx.array, sigmas: mx.array, cond: Any, config: Config, sigma: float | None = None) -> mx.array:
         text_bth, text_lens = cond["text_bth"], cond["text_lens"]
         timestep = sigmas[t].reshape((1,)) * 1000
         return self._ernie.transformer(

@@ -88,7 +88,7 @@ class Flux1TrainingAdapter(TrainingAdapter):
         mx.eval(clean_latents, prompt_embeds, pooled_prompt_embeds)
         return clean_latents, {"prompt_embeds": prompt_embeds, "pooled_prompt_embeds": pooled_prompt_embeds}
 
-    def predict_noise(self, *, t: int, latents_t: mx.array, sigmas: mx.array, cond: Any, config: Config) -> mx.array:  # noqa: ARG002
+    def predict_noise(self, *, t: int, latents_t: mx.array, sigmas: mx.array, cond: Any, config: Config, sigma: float | None = None) -> mx.array:  # noqa: ARG002
         # FLUX.1 transformer takes the INTEGER step index t (it reads config.scheduler.sigmas[t]
         # internally) — unlike flux2, which is passed config.scheduler.timesteps[t].
         return self._flux.transformer(

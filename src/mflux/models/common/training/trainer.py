@@ -81,10 +81,19 @@ class TrainingTrainer:
             key=mx.random.key(noise_seed),
         )
 
+        # Noise level: an adapter may define its own training timestep distribution
+        # (e.g. Ideogram-4's resolution-shifted logit-normal schedule — matching how the
+        # model was trained and how it samples at inference). Otherwise fall back to the
+        # uniform index into config.scheduler.sigmas (flux / z-image behavior).
+        if hasattr(adapter, "sample_sigma"):
+            sigma = float(adapter.sample_sigma(width=config.width, height=config.height, rng=rng))
+        else:
+            sigma = float(config.scheduler.sigmas[t])
+
         latents_t = LatentCreator.add_noise_by_interpolation(
             clean=clean_image,
             noise=pure_noise,
-            sigma=config.scheduler.sigmas[t],
+            sigma=sigma,
         )
 
         predicted_noise = adapter.predict_noise(
@@ -93,6 +102,7 @@ class TrainingTrainer:
             sigmas=config.scheduler.sigmas,
             cond=item.cond,
             config=config,
+            sigma=sigma,
         )
 
         error = (clean_image + predicted_noise - pure_noise).square()

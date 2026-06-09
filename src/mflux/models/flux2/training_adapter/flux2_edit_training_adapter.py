@@ -63,7 +63,7 @@ class Flux2EditTrainingAdapter(Flux2BaseTrainingAdapter):
             },
         )
 
-    def predict_noise(self, *, t: int, latents_t: mx.array, sigmas: mx.array, cond: Any, config: Config) -> mx.array:  # noqa: ARG002
+    def predict_noise(self, *, t: int, latents_t: mx.array, sigmas: mx.array, cond: Any, config: Config, sigma: float | None = None) -> mx.array:  # noqa: ARG002
         hidden_states = mx.concatenate([latents_t, cond["image_latents"]], axis=1)
         img_ids = mx.concatenate([cond["img_ids"], cond["image_latent_ids"]], axis=1)
         noise = self._flux2.transformer(

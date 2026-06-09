@@ -35,7 +35,7 @@ class Flux2TrainingAdapter(Flux2BaseTrainingAdapter):
         mx.eval(clean_latents, prompt_embeds, text_ids, img_ids)
         return clean_latents, {"prompt_embeds": prompt_embeds, "text_ids": text_ids, "img_ids": img_ids}
 
-    def predict_noise(self, *, t: int, latents_t: mx.array, sigmas: mx.array, cond: Any, config: Config) -> mx.array:  # noqa: ARG002
+    def predict_noise(self, *, t: int, latents_t: mx.array, sigmas: mx.array, cond: Any, config: Config, sigma: float | None = None) -> mx.array:  # noqa: ARG002
         return self._flux2.transformer(
             hidden_states=latents_t,
             encoder_hidden_states=cond["prompt_embeds"],

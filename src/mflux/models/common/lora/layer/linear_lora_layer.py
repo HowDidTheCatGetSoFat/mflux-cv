@@ -41,11 +41,10 @@ class LoRALinear(nn.Module):
             high=scale,
             shape=(input_dims, r),
         )
-        self.lora_B = mx.random.uniform(
-            low=-scale,
-            high=scale,
-            shape=(r, output_dims),
-        )
+        # Zero-init the up matrix so the LoRA is identity at step 0 (standard PEFT /
+        # ai-toolkit convention). Random-B perturbs the frozen base off-distribution at
+        # init, which (with few images) bakes in a washed/painterly look.
+        self.lora_B = mx.zeros((r, output_dims))
 
     def __call__(self, x):
         base_out = self.linear(x)
