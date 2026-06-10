@@ -1,4 +1,5 @@
 from __future__ import annotations
+import math
 
 from pathlib import Path
 from typing import Any
@@ -67,13 +68,18 @@ class Ideogram4TrainingAdapter(TrainingAdapter):
             self._ideo.text_encoder.freeze()
 
     def sample_sigma(self, *, width: int, height: int, rng) -> float:  # noqa: ARG002
-        # ai-toolkit's Ideogram-4 recipe samples timesteps UNIFORMLY: timestep_type='linear'
-        # grid linspace(1000,1,1000) + balanced uniform index, with NO loss weighting. So
-        # sigma == t01 == timestep/1000, uniform in (0,1). (The inference logit-normal schedule
-        # is the WRONG prior for the training loss — its mass piles up near sigma 0/1, which is
-        # what produced the painterly / low-fidelity LoRAs; this is the corrected recipe.)
-        t01 = rng.randint(1, 1000) / 1000.0
-        return float(min(max(t01, 1e-3), 1.0 - 1e-3))
+        # Match ai-toolkit's VALIDATED Ideogram-4 run (which produces LoRAs that DO imprint
+        # identity). When `timestep_type` is unset (our CLI/default case) ai-toolkit defaults to
+        # 'sigmoid' (config_modules.py:534): the per-step grid is sigmoid(randn) and 'balanced'
+        # draws a uniform index into it, so the net training prior over sigma = timestep/1000 is
+        # 1 - sigmoid(N(0,1)) — MID-concentrated, NOT uniform.
+        # A code-level diff vs ai-toolkit found this is the single dominant divergence: our former
+        # UNIFORM sampling under-sampled the mid/low-sigma band where subject-identity gradient
+        # lives, which the per-sigma validator measured as -12.6% low-sigma degradation. (Earlier
+        # "uniform is correct" was a misread of the UI default 'linear', not what actually ran.)
+        z = rng.gauss(0.0, 1.0)
+        sigma = 1.0 - 1.0 / (1.0 + math.exp(-z))  # 1 - sigmoid(randn): center/mid-peaked
+        return float(min(max(sigma, 1e-3), 1.0 - 1e-3))
 
     def encode_data(
         self,
