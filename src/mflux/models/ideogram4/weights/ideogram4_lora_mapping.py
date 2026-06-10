@@ -21,6 +21,21 @@ class Ideogram4LoRAMapping(LoRAMapping):
                 ],
             ),
             LoRATarget(
+                model_path="llm_cond_proj",
+                possible_up_patterns=[
+                    "transformer.llm_cond_proj.lora_B.weight",
+                    "diffusion_model.llm_cond_proj.lora_B.weight",
+                ],
+                possible_down_patterns=[
+                    "transformer.llm_cond_proj.lora_A.weight",
+                    "diffusion_model.llm_cond_proj.lora_A.weight",
+                ],
+                possible_alpha_patterns=[
+                    "transformer.llm_cond_proj.alpha",
+                    "diffusion_model.llm_cond_proj.alpha",
+                ],
+            ),
+            LoRATarget(
                 model_path="adaln_proj",
                 possible_up_patterns=[
                     "transformer.adaln_proj.lora_B.weight",
