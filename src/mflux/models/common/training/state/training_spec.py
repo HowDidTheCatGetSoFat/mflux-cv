@@ -387,6 +387,7 @@ class TrainingSpec:
                     module_path=t["module_path"],
                     rank=t["rank"],
                     blocks=blocks,
+                    alpha=t.get("alpha"),
                 )
             )
 
