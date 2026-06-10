@@ -152,6 +152,15 @@ class TrainingTrainer:
         adapter.freeze_base()
         TrainingTrainer._unfreeze_lora_layers(adapter.transformer())
 
+        # With previews off, the encode/preview-only submodules (text encoder, VAE, CFG
+        # transformer) are dead weight for the whole loop — the dataset is already encoded.
+        # Release them to the OS (~16GB on Ideogram-4's Qwen3-VL alone); zero train-speed cost.
+        previews_off = training_spec.monitoring is None or not training_spec.monitoring.preview_prompts
+        if previews_off:
+            release = getattr(adapter, "release_encoders", None)
+            if release is not None:
+                release()
+
         train_step_function = nn.value_and_grad(
             model=adapter.model(),
             fn=lambda b: TrainingTrainer.compute_loss(adapter, training_spec, base_config, b),

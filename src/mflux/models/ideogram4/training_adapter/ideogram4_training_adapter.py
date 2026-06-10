@@ -1,4 +1,5 @@
 from __future__ import annotations
+import gc
 import math
 
 from pathlib import Path
@@ -71,6 +72,17 @@ class Ideogram4TrainingAdapter(TrainingAdapter):
         # RAM from ~100GB (full activation graph of a 9B model) to a fraction. Only the conditional
         # transformer is trained; the unconditional (preview-CFG) one stays off.
         self._ideo.conditional_transformer.gradient_checkpointing = True
+
+    def release_encoders(self) -> None:
+        # The text encoder (Qwen3-VL, ~16GB), VAE and unconditional (CFG/preview) transformer
+        # are used only for dataset encoding and preview generation; the train loop touches
+        # just the conditional transformer. The trainer calls this when previews are off —
+        # drop them and return the memory to the OS. Zero train-speed cost.
+        self._ideo.text_encoder = None
+        self._ideo.vae = None
+        self._ideo.unconditional_transformer = None
+        gc.collect()
+        mx.clear_cache()
 
     def sample_sigma(self, *, width: int, height: int, rng) -> float:  # noqa: ARG002
         # Match ai-toolkit's VALIDATED Ideogram-4 run (which produces LoRAs that DO imprint

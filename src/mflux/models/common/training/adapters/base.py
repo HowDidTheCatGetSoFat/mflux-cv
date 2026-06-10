@@ -46,6 +46,12 @@ class TrainingAdapter(Protocol):
         image_paths: list[Path | str] | None = None,
     ) -> Image.Image: ...
 
+    def release_encoders(self) -> None:
+        # Optional: drop submodules used only for dataset encoding and previews (text
+        # encoders, VAE, CFG transformer) once the dataset is cached. The trainer calls
+        # this ONLY when previews are disabled. Default: keep everything (no-op).
+        return None
+
     def save_lora_adapter(self, *, path: Path, training_spec: TrainingSpec) -> None: ...
 
     def load_lora_adapter(self, *, path: str | Path) -> None: ...
