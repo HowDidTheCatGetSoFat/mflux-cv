@@ -7,11 +7,34 @@ from mflux.models.common.lora.layer.linear_lora_layer import LoRALinear
 
 
 def _is_fp8_base(linear) -> bool:
-    # fp8 bases store raw uint8 codes in .weight — a float delta CANNOT be folded into them:
-    # `merged.astype(uint8)` rounds the LoRA delta away entirely (silent no-op). Keep the live
-    # wrapper instead (it dequantizes per-forward, which is also what training does).
+    # fp8 bases store raw uint8 codes in .weight plus a per-row weight_scale — a float delta
+    # CANNOT be folded into the codes directly (`merged.astype(uint8)` rounds it away). They
+    # are baked by dequantizing once and requantizing to MLX q8 (see _fold_fp8_delta_to_q8).
     weight = getattr(linear, "weight", None)
-    return weight is not None and weight.dtype == mx.uint8 and not isinstance(linear, nn.QuantizedLinear)
+    return (
+        weight is not None
+        and weight.dtype == mx.uint8
+        and hasattr(linear, "weight_scale")
+        and not isinstance(linear, nn.QuantizedLinear)
+    )
+
+
+def _fold_fp8_delta_to_q8(base_linear, delta: mx.array) -> nn.Module:
+    # Dequantize the fp8 base ONCE, add the LoRA delta in float, requantize to MLX q8
+    # (group-64 affine ≈ more mantissa than fp8-e4m3, so no quality loss). Besides making
+    # the bake CORRECT on fp8, this replaces Fp8Linear's per-forward full-matrix
+    # dequantization with MLX's fused quantized matmul kernel — substantially faster.
+    dense = mx.from_fp8(base_linear.weight, dtype=mx.float32) * base_linear.weight_scale[:, None]
+    merged = dense + delta.astype(mx.float32)
+    bias = getattr(base_linear, "bias", None)
+    compute_dtype = getattr(base_linear, "compute_dtype", mx.bfloat16)
+    linear = nn.Linear(merged.shape[1], merged.shape[0], bias=bias is not None)
+    linear.weight = merged.astype(compute_dtype)
+    if bias is not None:
+        linear.bias = bias
+    quantized = nn.QuantizedLinear.from_linear(linear, group_size=64, bits=8)
+    mx.eval(quantized.parameters())
+    return quantized
 
 
 class LoRASaver:
@@ -43,24 +66,21 @@ class LoRASaver:
             return current
 
         def _walk(obj, parent=None, attr_name=None, idx=None):
-            # Replace wrappers first — but NEVER strip a wrapper whose base is fp8: the delta
-            # cannot be folded into uint8 codes (it silently rounds away), so the live wrapper
-            # IS the correct representation there.
+            # Replace wrappers first. fp8 bases are handled inside _bake_delta_into_linear
+            # (dequantize once + fold + requantize to q8 — folding into the raw uint8 codes
+            # would silently round the delta away).
             if isinstance(obj, FusedLoRALinear):
-                if not _is_fp8_base(obj.base_linear):
-                    new_child = _bake_fused(obj)
-                    _assign(parent, attr_name, idx, new_child)
-                    obj = new_child
+                new_child = _bake_fused(obj)
+                _assign(parent, attr_name, idx, new_child)
+                obj = new_child
             elif isinstance(obj, LoKrLinear):
-                if not _is_fp8_base(obj.linear):
-                    new_child = _bake_lokr(obj)
-                    _assign(parent, attr_name, idx, new_child)
-                    obj = new_child
+                new_child = _bake_lokr(obj)
+                _assign(parent, attr_name, idx, new_child)
+                obj = new_child
             elif isinstance(obj, LoRALinear):
-                if not _is_fp8_base(obj.linear):
-                    new_child = _bake_single(obj)
-                    _assign(parent, attr_name, idx, new_child)
-                    obj = new_child
+                new_child = _bake_single(obj)
+                _assign(parent, attr_name, idx, new_child)
+                obj = new_child
 
             # Recurse into containers/modules
             if isinstance(obj, list):
@@ -94,6 +114,8 @@ class LoRASaver:
                 bits=linear.bits,
                 mode=linear.mode,
             )
+        if _is_fp8_base(linear):
+            return mx.from_fp8(linear.weight, dtype=mx.float32) * linear.weight_scale[:, None]
         return linear.weight
 
     @staticmethod
@@ -116,6 +138,9 @@ class LoRASaver:
     ) -> nn.Module:
         if not hasattr(base_linear, "weight"):
             return base_linear
+
+        if _is_fp8_base(base_linear):
+            return _fold_fp8_delta_to_q8(base_linear, delta)
 
         dense_weight = LoRASaver._dense_weight(base_linear)
         if dense_weight.shape != delta.shape:
