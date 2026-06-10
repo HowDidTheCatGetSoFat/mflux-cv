@@ -66,6 +66,11 @@ class Ideogram4TrainingAdapter(TrainingAdapter):
         self._ideo.unconditional_transformer.freeze()
         if getattr(self._ideo, "text_encoder", None) is not None:
             self._ideo.text_encoder.freeze()
+        # Gradient checkpointing on the trained (conditional) transformer: recompute the 34-block
+        # activations in backward instead of storing them. This is what dropped Ideogram-4 training
+        # RAM from ~100GB (full activation graph of a 9B model) to a fraction. Only the conditional
+        # transformer is trained; the unconditional (preview-CFG) one stays off.
+        self._ideo.conditional_transformer.gradient_checkpointing = True
 
     def sample_sigma(self, *, width: int, height: int, rng) -> float:  # noqa: ARG002
         # Match ai-toolkit's VALIDATED Ideogram-4 run (which produces LoRAs that DO imprint

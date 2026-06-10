@@ -82,8 +82,16 @@ class Ideogram4Transformer(nn.Module):
         cos, sin = self.rotary_emb(position_ids)
         cos = cos.astype(h.dtype)
         sin = sin.astype(h.dtype)
+        # Optional gradient checkpointing: recompute each block's activations during the
+        # backward pass instead of storing them — trades ~20-30% compute for a large drop in
+        # peak memory (the 34-block activation graph of a ~9B transformer dominates training
+        # RAM). Off by default (inference unaffected); the training adapter turns it on.
+        # nn.utils.checkpoint (NOT raw mx.checkpoint) checkpoints w.r.t. the module's trainable
+        # params too, so LoRA gradients stay exact (verified: 0.0 grad diff vs non-checkpointed).
+        gradient_checkpointing = getattr(self, "gradient_checkpointing", False)
         for layer in self.layers:
-            h = layer(
+            run = nn.utils.checkpoint(layer) if gradient_checkpointing else layer
+            h = run(
                 h,
                 segment_ids=segment_ids,
                 cos=cos,
