@@ -15,6 +15,8 @@ from mflux.models.common.training.state.zip_util import ZipUtil
 class Optimizers(Enum):
     ADAM = ("Adam", optim.Adam)
     ADAMW = ("AdamW", optim.AdamW)
+    ADAFACTOR = ("Adafactor", optim.Adafactor)  # ~half the optimizer state of Adam (memory-light)
+    LION = ("Lion", optim.Lion)
 
     def __init__(self, alias: str, optimizer: mlx.optimizers.Optimizer):
         self.alias = alias
@@ -38,9 +40,13 @@ class Optimizer:
 
     @staticmethod
     def from_spec(training_spec: TrainingSpec) -> "Optimizer":
-        opt_cls = Optimizers.from_alias(training_spec.optimizer.name)
+        spec = training_spec.optimizer
+        opt_cls = Optimizers.from_alias(spec.name)
+        # Pass any caller-provided optimizer kwargs (weight_decay, betas, eps, ...). Previously
+        # only learning_rate was forwarded, so these silently fell back to MLX defaults.
+        kwargs = {"learning_rate": spec.learning_rate, **(spec.optimizer_params or {})}
         # noinspection PyCallingNonCallable
-        opt = opt_cls(learning_rate=training_spec.optimizer.learning_rate)
+        opt = opt_cls(**kwargs)
 
         if training_spec.optimizer.state_path is not None:
             state = ZipUtil.unzip(

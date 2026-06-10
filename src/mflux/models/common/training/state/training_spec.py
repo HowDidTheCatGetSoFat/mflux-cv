@@ -1,7 +1,7 @@
 import datetime
 import json
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -84,6 +84,11 @@ class OptimizerSpec:
     name: str
     learning_rate: float
     state_path: str | None = None
+    # Global-norm gradient clipping; None = off (preserves prior behavior).
+    max_grad_norm: float | None = None
+    # Extra optimizer kwargs (e.g. {"weight_decay": 1e-4, "betas": [0.9, 0.99], "eps": 1e-8}).
+    # Previously only learning_rate was passed, so these were locked to MLX defaults.
+    optimizer_params: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -116,6 +121,9 @@ class LoraTargetSpec:
     module_path: str
     rank: int
     blocks: BlockRange | None = None
+    # LoRA alpha; effective scale = alpha / rank (published-recipe convention).
+    # None keeps the prior behavior (scale = 1.0).
+    alpha: float | None = None
 
 
 @dataclass

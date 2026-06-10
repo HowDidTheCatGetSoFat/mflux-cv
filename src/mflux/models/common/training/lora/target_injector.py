@@ -30,7 +30,8 @@ def inject_lora_targets(transformer: Any, targets: list[LoraTargetSpec]) -> None
         linear_types = (nn.Linear, nn.QuantizedLinear)
 
     expanded = expand_module_paths_from_targets(targets)
-    for module_path, rank in expanded:
+    for module_path, rank, alpha in expanded:
+        scale = (alpha / rank) if alpha is not None else 1.0
         current = get_at_path(transformer, module_path)
 
         # Skip if already has a trainable LoRA on this path
@@ -42,18 +43,18 @@ def inject_lora_targets(transformer: Any, targets: list[LoraTargetSpec]) -> None
                 continue
 
         if isinstance(current, linear_types):
-            wrapped = LoRALinear.from_linear(current, r=rank)
+            wrapped = LoRALinear.from_linear(current, r=rank, scale=scale)
             wrapped._mflux_lora_role = "train"
             set_at_path(transformer, module_path, wrapped)
         elif isinstance(current, LoRALinear):
             # Fuse a new trainable LoRA on top of an existing LoRA (e.g. assistant adapter).
-            train_lora = LoRALinear.from_linear(current.linear, r=rank)
+            train_lora = LoRALinear.from_linear(current.linear, r=rank, scale=scale)
             train_lora._mflux_lora_role = "train"
             fused = FusedLoRALinear(base_linear=current.linear, loras=[current, train_lora])
             set_at_path(transformer, module_path, fused)
         elif isinstance(current, FusedLoRALinear):
             # Add a new trainable LoRA to an existing fusion (e.g. multiple preloaded LoRAs).
-            train_lora = LoRALinear.from_linear(current.base_linear, r=rank)
+            train_lora = LoRALinear.from_linear(current.base_linear, r=rank, scale=scale)
             train_lora._mflux_lora_role = "train"
             fused = FusedLoRALinear(base_linear=current.base_linear, loras=current.loras + [train_lora])
             set_at_path(transformer, module_path, fused)
