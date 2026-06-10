@@ -6,6 +6,14 @@ from mflux.models.common.lora.layer.linear_lokr_layer import LoKrLinear
 from mflux.models.common.lora.layer.linear_lora_layer import LoRALinear
 
 
+def _is_fp8_base(linear) -> bool:
+    # fp8 bases store raw uint8 codes in .weight — a float delta CANNOT be folded into them:
+    # `merged.astype(uint8)` rounds the LoRA delta away entirely (silent no-op). Keep the live
+    # wrapper instead (it dequantizes per-forward, which is also what training does).
+    weight = getattr(linear, "weight", None)
+    return weight is not None and weight.dtype == mx.uint8 and not isinstance(linear, nn.QuantizedLinear)
+
+
 class LoRASaver:
     @staticmethod
     def bake_and_strip_lora(module: nn.Module) -> nn.Module:
@@ -35,19 +43,24 @@ class LoRASaver:
             return current
 
         def _walk(obj, parent=None, attr_name=None, idx=None):
-            # Replace wrappers first
+            # Replace wrappers first — but NEVER strip a wrapper whose base is fp8: the delta
+            # cannot be folded into uint8 codes (it silently rounds away), so the live wrapper
+            # IS the correct representation there.
             if isinstance(obj, FusedLoRALinear):
-                new_child = _bake_fused(obj)
-                _assign(parent, attr_name, idx, new_child)
-                obj = new_child
+                if not _is_fp8_base(obj.base_linear):
+                    new_child = _bake_fused(obj)
+                    _assign(parent, attr_name, idx, new_child)
+                    obj = new_child
             elif isinstance(obj, LoKrLinear):
-                new_child = _bake_lokr(obj)
-                _assign(parent, attr_name, idx, new_child)
-                obj = new_child
+                if not _is_fp8_base(obj.linear):
+                    new_child = _bake_lokr(obj)
+                    _assign(parent, attr_name, idx, new_child)
+                    obj = new_child
             elif isinstance(obj, LoRALinear):
-                new_child = _bake_single(obj)
-                _assign(parent, attr_name, idx, new_child)
-                obj = new_child
+                if not _is_fp8_base(obj.linear):
+                    new_child = _bake_single(obj)
+                    _assign(parent, attr_name, idx, new_child)
+                    obj = new_child
 
             # Recurse into containers/modules
             if isinstance(obj, list):
