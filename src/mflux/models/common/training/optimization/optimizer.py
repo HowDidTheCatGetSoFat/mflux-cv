@@ -39,12 +39,28 @@ class Optimizer:
         mx.save_safetensors(str(path), dict(state))
 
     @staticmethod
+    def _build_lr(spec):
+        # Returns a float (constant) or an MLX schedule callable. A linear warmup (lr_warmup_steps)
+        # is prepended when set; "cosine" decays over the remaining steps (needs lr_total_steps).
+        lr = spec.learning_rate
+        warmup = spec.lr_warmup_steps or 0
+        if spec.lr_schedule == "cosine" and spec.lr_total_steps:
+            decay_steps = max(1, int(spec.lr_total_steps) - warmup)
+            main = optim.cosine_decay(lr, decay_steps)
+            if warmup > 0:
+                return optim.join_schedules([optim.linear_schedule(0.0, lr, warmup), main], [warmup])
+            return main
+        if warmup > 0:  # warmup then constant
+            return optim.join_schedules([optim.linear_schedule(0.0, lr, warmup), optim.cosine_decay(lr, 10**12)], [warmup])
+        return lr
+
+    @staticmethod
     def from_spec(training_spec: TrainingSpec) -> "Optimizer":
         spec = training_spec.optimizer
         opt_cls = Optimizers.from_alias(spec.name)
         # Pass any caller-provided optimizer kwargs (weight_decay, betas, eps, ...). Previously
         # only learning_rate was forwarded, so these silently fell back to MLX defaults.
-        kwargs = {"learning_rate": spec.learning_rate, **(spec.optimizer_params or {})}
+        kwargs = {"learning_rate": Optimizer._build_lr(spec), **(spec.optimizer_params or {})}
         # noinspection PyCallingNonCallable
         opt = opt_cls(**kwargs)
 

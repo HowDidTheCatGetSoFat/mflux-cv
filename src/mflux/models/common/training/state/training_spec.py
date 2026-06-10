@@ -89,6 +89,12 @@ class OptimizerSpec:
     # Extra optimizer kwargs (e.g. {"weight_decay": 1e-4, "betas": [0.9, 0.99], "eps": 1e-8}).
     # Previously only learning_rate was passed, so these were locked to MLX defaults.
     optimizer_params: dict = field(default_factory=dict)
+    # LR schedule: None = constant; "cosine" = cosine decay (needs lr_total_steps). A linear
+    # warmup of lr_warmup_steps is prepended either way (0 = none). Resumes correctly: the
+    # schedule is rebuilt from these fields and applied at the optimizer's restored step.
+    lr_schedule: str | None = None
+    lr_warmup_steps: int = 0
+    lr_total_steps: int | None = None
 
 
 @dataclass
