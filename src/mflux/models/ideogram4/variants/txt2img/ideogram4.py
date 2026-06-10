@@ -115,7 +115,15 @@ class Ideogram4(nn.Module):
         ctx = self.callbacks.start(seed=seed, prompt=prompt, config=config)
         ctx.before_loop(z)
         predict_conditional = self._predict_conditional(self.conditional_transformer)
-        predict_unconditional = self._predict_unconditional(self.unconditional_transformer)
+        # CFG negative: with a LoRA active, run the empty prompt through the (LoRA'd)
+        # CONDITIONAL transformer — the reference trainer (ai-toolkit) convention. The separate
+        # distilled unconditional transformer has different weights, so a LoRA trained against
+        # the conditional puts it off-distribution; the corrupted negative then gets amplified
+        # by the guidance factor in v = g*pos + (1-g)*neg, which saturates the output into a
+        # patch-mosaic. (Verified: a known-good LoRA renders garbage at guidance>1 through the
+        # unconditional path but clean at guidance=1; clean at full guidance with this routing.)
+        uncond_transformer = self.conditional_transformer if getattr(self, "lora_paths", None) else self.unconditional_transformer
+        predict_unconditional = self._predict_unconditional(uncond_transformer)
         time_steps = config.time_steps
         for step_index in time_steps:
             try:
