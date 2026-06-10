@@ -10,6 +10,9 @@ from mflux.models.common.config.model_config import ModelConfig
 
 @pytest.mark.fast
 def test_partial_width_none_resolves_from_reference_image(tmp_path: Path):
+    # Since the #353 cherry-pick (f048717), an absolute height + auto width preserves the
+    # reference ASPECT RATIO (512 * 1200/800 = 768, snapped to 16) instead of copying the
+    # reference width verbatim (which distorted the image).
     image_path = tmp_path / "reference.png"
     PIL.Image.new("RGB", (1200, 800)).save(image_path)
 
@@ -20,8 +23,25 @@ def test_partial_width_none_resolves_from_reference_image(tmp_path: Path):
         image_path=image_path,
     )
 
-    assert config.width == 1200
+    assert config.width == 768
     assert config.height == 512
+
+
+@pytest.mark.fast
+def test_both_dimensions_none_resolve_to_reference_image_size(tmp_path: Path):
+    # Both-auto keeps the pre-#353 behavior: the reference dimensions verbatim.
+    image_path = tmp_path / "reference.png"
+    PIL.Image.new("RGB", (1200, 800)).save(image_path)
+
+    config = Config(
+        model_config=ModelConfig.flux2_klein_4b(),
+        width=None,
+        height=None,
+        image_path=image_path,
+    )
+
+    assert config.width == 1200
+    assert config.height == 800
 
 
 @pytest.mark.fast
