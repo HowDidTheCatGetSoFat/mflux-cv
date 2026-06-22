@@ -89,11 +89,16 @@ class Ideogram4Transformer(nn.Module):
         # nn.utils.checkpoint (NOT raw mx.checkpoint) checkpoints w.r.t. the module's trainable
         # params too, so LoRA gradients stay exact (verified: 0.0 grad diff vs non-checkpointed).
         gradient_checkpointing = getattr(self, "gradient_checkpointing", False)
+
+        # Segment-block attention mask is identical for every layer (segment_ids
+        # never change), so build it once here instead of per-block. A boolean
+        # keep-mask (True = attend) lets SDPA take its fast masked path.
+        attn_mask = (segment_ids[:, :, None] == segment_ids[:, None, :])[:, None, :, :]
         for layer in self.layers:
             run = nn.utils.checkpoint(layer) if gradient_checkpointing else layer
             h = run(
                 h,
-                segment_ids=segment_ids,
+                mask=attn_mask,
                 cos=cos,
                 sin=sin,
                 adaln_input=adaln_input,
