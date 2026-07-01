@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gc
+import math
 import random
 import tempfile
 from pathlib import Path
@@ -184,9 +185,23 @@ class TrainingTrainer:
         max_grad_norm = training_spec.optimizer.max_grad_norm
         accum_steps = max(1, training_spec.optimizer.gradient_accumulation_steps)
         accumulated_grads = None
+        nonfinite_skips = 0
         for batch in batches:
             loss, grads = train_step_function(batch)
+            # The training loss is already computed here (with the gradients); capture it for the
+            # plot instead of paying for a separate forward pass later. float() also forces the
+            # single scalar eval needed for the non-finite check below.
+            train_loss = float(loss)
             del loss
+            # Skip non-finite steps (bf16 activation spikes / NaN loss) so a single bad batch
+            # can't poison the LoRA weights or optimizer state; the run continues on the last
+            # good state. clip_grad_norm handles ordinary spikes; this catches Inf/NaN.
+            if not math.isfinite(train_loss):
+                del grads
+                nonfinite_skips += 1
+                if training_spec.low_ram:
+                    mx.clear_cache()
+                continue
 
             # Gradient accumulation: average grads across accum_steps micro-batches and only step
             # the optimizer on the window boundary, for an effective batch of batch_size *
@@ -210,11 +225,11 @@ class TrainingTrainer:
             del grads
 
             if training_state.should_plot_loss(training_spec):
-                validation_batch = training_state.iterator.get_validation_batch()
-                validation_loss = TrainingTrainer.compute_loss(adapter, training_spec, base_config, validation_batch)
-                training_state.statistics.append_values(step=training_state.iterator.num_iterations, loss=float(validation_loss))  # fmt: off
+                # Plot the already-computed training loss (free) instead of a separate forward
+                # pass over the same samples every plot step (there is no held-out validation
+                # set); that recompute was the dominant per-step cost on larger models.
+                training_state.statistics.append_values(step=training_state.iterator.num_iterations, loss=train_loss)  # fmt: off
                 Plotter.update_loss_plot(training_spec=training_spec, training_state=training_state)
-                del validation_loss
 
             if training_state.should_generate_image(training_spec):
                 TrainingTrainer._generate_previews_with_optimizer_offload(adapter, training_spec, training_state)
@@ -225,6 +240,8 @@ class TrainingTrainer:
             if training_spec.low_ram:
                 mx.clear_cache()
 
+        if nonfinite_skips:
+            print(f"Skipped {nonfinite_skips} non-finite (NaN/Inf) training step(s).")
         training_state.save(adapter, training_spec)
 
     @staticmethod
