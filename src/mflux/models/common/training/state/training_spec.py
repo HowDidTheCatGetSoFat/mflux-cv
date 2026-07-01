@@ -91,6 +91,11 @@ class OptimizerSpec:
     state_path: str | None = None
     # Global-norm gradient clipping; None = off (preserves prior behavior).
     max_grad_norm: float | None = None
+    # Gradient accumulation: average grads over this many micro-batches before one optimizer
+    # step, for an effective batch of batch_size * gradient_accumulation_steps without the memory
+    # of a bigger batch. 1 = off (steps every micro-batch). Frequencies (save/plot/preview) and
+    # the step count stay in micro-batch units.
+    gradient_accumulation_steps: int = 1
     # Extra optimizer kwargs (e.g. {"weight_decay": 1e-4, "betas": [0.9, 0.99], "eps": 1e-8}).
     # Previously only learning_rate was passed, so these were locked to MLX defaults.
     optimizer_params: dict = field(default_factory=dict)
