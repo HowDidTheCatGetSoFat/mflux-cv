@@ -104,6 +104,10 @@ class TrainingLoopSpec:
     # 0 so the background still contributes a little. 1.0 = mask has no effect. Only used when a data
     # item has a mask.
     mask_min_value: float = 0.1
+    # Caption dropout: with probability p, replace an example's text condition with the empty-caption
+    # condition for that step, so the model also learns unconditional generation (standard LoRA
+    # regularization; improves flexibility / prompt robustness). 0.0 = off.
+    caption_dropout_rate: float = 0.0
 
 
 @dataclass

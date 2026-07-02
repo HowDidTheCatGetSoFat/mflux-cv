@@ -122,11 +122,20 @@ class TrainingTrainer:
             sigma=sigma,
         )
 
+        # Caption dropout: with probability caption_dropout_rate, swap this example's text condition
+        # for the precomputed empty-caption condition, so the model also learns unconditional
+        # generation. Decided per example per step (stochastic via rng).
+        cond = item.cond
+        dropout_rate = training_spec.training_loop.caption_dropout_rate
+        null_cond = getattr(adapter, "_caption_dropout_null_cond", None)
+        if null_cond is not None and dropout_rate > 0 and rng.random() < dropout_rate:
+            cond = null_cond
+
         predicted_noise = adapter.predict_noise(
             t=t,
             latents_t=latents_t,
             sigmas=config.scheduler.sigmas,
-            cond=item.cond,
+            cond=cond,
             config=config,
             sigma=sigma,
         )

@@ -158,6 +158,22 @@ class TrainingRunner:
         statistics = None
         training_state = None
 
+        # Caption dropout: precompute the empty-caption condition once (it is prompt-derived and
+        # shared across items). The per-example, per-step decision to use it is made in the loss so
+        # it varies stochastically; here we only pay one extra encode.
+        if training_spec.training_loop.caption_dropout_rate > 0 and training_spec.data:
+            first = training_spec.data[0]
+            null_w, null_h = TrainingRunner._resolve_data_dimensions(training_spec=training_spec, image_path=first.image)
+            _, null_cond = adapter.encode_data(
+                data_id=0,
+                image_path=first.image,
+                prompt=" ",  # a single space (not "") — some text encoders produce an empty sequence for ""
+                width=null_w,
+                height=null_h,
+                input_image_path=first.input_image,
+            )
+            adapter._caption_dropout_null_cond = null_cond
+
         # Prepare dataset data
         if training_spec.low_ram:
             if training_spec.data_root is None:
