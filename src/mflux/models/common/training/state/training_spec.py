@@ -16,6 +16,10 @@ class DataSpec:
     input_image: Path | None
     prompt: str
     mask: Path | None = None
+    # Regularization / prior-preservation image: trained alongside the subject images (with its own
+    # class caption) but weighted by training_loop.reg_weight, to keep the base class distribution and
+    # reduce overfitting/forgetting. Auto-discovered from a "reg/" subfolder of the data dir.
+    is_reg: bool = False
 
     @classmethod
     def create(cls, param: Mapping[str, Any], absolute_or_relative_path: str, base_path: Path | None) -> "DataSpec":
@@ -68,7 +72,13 @@ class DataSpec:
         else:
             raise ValueError("Each data item must provide either 'prompt' or 'prompt_file'.")
 
-        return cls(image=image_path, input_image=input_image, prompt=prompt, mask=mask)
+        return cls(
+            image=image_path,
+            input_image=input_image,
+            prompt=prompt,
+            mask=mask,
+            is_reg=bool(param.get("is_reg", False)),
+        )
 
     @staticmethod
     def _resolve_relative_to_data_path(path: Path, *, absolute_or_relative_path: str, base_path: Path | None) -> Path:
@@ -112,6 +122,9 @@ class TrainingLoopSpec:
     # after each optimizer step, and save/preview from it for smoother, more stable results. None/0 =
     # off. Typical: 0.99-0.9999. The live weights keep training; EMA is only swapped in at save time.
     ema_decay: float | None = None
+    # Weight applied to the loss of regularization images (is_reg, from a "reg/" subfolder). < 1.0
+    # softens their pull; 1.0 = same weight as subject images. Only matters when reg images exist.
+    reg_weight: float = 1.0
 
 
 @dataclass
@@ -616,6 +629,29 @@ class TrainingSpec:
                     base_path,
                 )
             )
+
+        # Regularization / prior-preservation images: an optional "reg/" subfolder, each image with a
+        # matching .txt caption. Trained alongside the subject images but weighted by reg_weight.
+        reg_dir = root_dir / "reg"
+        if reg_dir.is_dir():
+            reg_images = sorted(
+                p
+                for p in reg_dir.iterdir()
+                if p.is_file() and p.suffix.lower() in image_exts and not p.stem.endswith(".mask")
+            )
+            for image_path in reg_images:
+                prompt_file = image_path.with_suffix(".txt")
+                if not prompt_file.exists():
+                    raise ValueError(
+                        f"Missing prompt file for reg image '{image_path.name}'. Expected '{prompt_file.name}' in {reg_dir}"
+                    )
+                data_items.append(
+                    DataSpec.create(
+                        {"image": f"reg/{image_path.name}", "prompt_file": f"reg/{prompt_file.name}", "is_reg": True},
+                        data_path,
+                        base_path,
+                    )
+                )
         return data_items
 
     def to_json(self) -> str:

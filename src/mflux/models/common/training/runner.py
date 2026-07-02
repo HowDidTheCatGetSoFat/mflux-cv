@@ -246,6 +246,7 @@ class TrainingRunner:
                         width=width,
                         height=height,
                         mask=mask,
+                        is_reg=item.is_reg,
                     )
                 )
             dataset = Dataset(encoded_data)

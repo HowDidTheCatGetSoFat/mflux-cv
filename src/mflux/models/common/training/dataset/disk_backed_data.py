@@ -46,4 +46,5 @@ class DiskBackedData(Sequence[DataItem]):
             width=width,
             height=height,
             mask=mask,
+            is_reg=spec.is_reg,
         )

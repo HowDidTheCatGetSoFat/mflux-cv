@@ -147,8 +147,13 @@ class TrainingTrainer:
         # (an all-ones mask reproduces the plain mean exactly).
         if item.mask is not None:
             weights = mx.broadcast_to(item.mask, error.shape)
-            return (error * weights).sum() / weights.sum()
-        return error.mean()
+            loss = (error * weights).sum() / weights.sum()
+        else:
+            loss = error.mean()
+        # Prior preservation: scale regularization images' loss by reg_weight relative to subject images.
+        if item.is_reg:
+            loss = loss * training_spec.training_loop.reg_weight
+        return loss
 
     @staticmethod
     def train(

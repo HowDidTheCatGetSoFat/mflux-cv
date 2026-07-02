@@ -18,6 +18,7 @@ class DataItem:
         width: int,
         height: int,
         mask: mx.array | None = None,
+        is_reg: bool = False,
     ):
         self.data_id = data_id
         self.prompt = prompt
@@ -28,6 +29,8 @@ class DataItem:
         self.height = int(height)
         # Optional per-example loss mask (latent-resolution, broadcastable over the loss tensor).
         self.mask = mask
+        # Regularization image (prior preservation): its loss is scaled by reg_weight.
+        self.is_reg = is_reg
 
 
 class Batch:
