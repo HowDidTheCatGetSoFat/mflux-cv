@@ -108,6 +108,10 @@ class TrainingLoopSpec:
     # condition for that step, so the model also learns unconditional generation (standard LoRA
     # regularization; improves flexibility / prompt robustness). 0.0 = off.
     caption_dropout_rate: float = 0.0
+    # EMA of the trained (LoRA) weights: keep a shadow copy updated as ema = decay*ema + (1-decay)*w
+    # after each optimizer step, and save/preview from it for smoother, more stable results. None/0 =
+    # off. Typical: 0.99-0.9999. The live weights keep training; EMA is only swapped in at save time.
+    ema_decay: float | None = None
 
 
 @dataclass

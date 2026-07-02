@@ -169,6 +169,11 @@ class TrainingTrainer:
         adapter.freeze_base()
         TrainingTrainer._unfreeze_lora_layers(adapter.transformer())
 
+        # EMA of the trained (LoRA) weights (optional): a shadow copy taken after unfreezing,
+        # updated after each optimizer step, and swapped in at save time. None when ema_decay is off.
+        ema_decay = training_spec.training_loop.ema_decay
+        ema = TrainingTrainer._init_ema(adapter, ema_decay)
+
         # With previews off, the encode/preview-only submodules (text encoder, VAE, CFG
         # transformer) are dead weight for the whole loop — the dataset is already encoded.
         # Release them to the OS (~16GB on Ideogram-4's Qwen3-VL alone); zero train-speed cost.
@@ -190,7 +195,7 @@ class TrainingTrainer:
             training_state.statistics.append_values(step=training_state.iterator.num_iterations, loss=float(validation_loss))  # fmt: off
             Plotter.update_loss_plot(training_spec=training_spec, training_state=training_state)
             del validation_loss
-            training_state.save(adapter, training_spec)
+            TrainingTrainer._save_checkpoint(training_state, adapter, training_spec, ema)
 
         batches = tqdm(
             training_state.iterator,
@@ -235,6 +240,7 @@ class TrainingTrainer:
                     grads, _ = clip_grad_norm(grads, max_grad_norm)
                 training_state.optimizer.optimizer.update(model=adapter.model(), gradients=grads)
                 mx.eval(adapter.model().parameters(), training_state.optimizer.optimizer.state)
+                ema = TrainingTrainer._update_ema(ema, ema_decay, adapter)
             else:
                 # Keep the partial sum materialized so the graph doesn't grow across the window.
                 mx.eval(accumulated_grads)
@@ -251,14 +257,50 @@ class TrainingTrainer:
                 TrainingTrainer._generate_previews_with_optimizer_offload(adapter, training_spec, training_state)
 
             if training_state.should_save(training_spec):
-                training_state.save(adapter, training_spec)
+                TrainingTrainer._save_checkpoint(training_state, adapter, training_spec, ema)
 
             if training_spec.low_ram:
                 mx.clear_cache()
 
         if nonfinite_skips:
             print(f"Skipped {nonfinite_skips} non-finite (NaN/Inf) training step(s).")
-        training_state.save(adapter, training_spec)
+        TrainingTrainer._save_checkpoint(training_state, adapter, training_spec, ema)
+
+    @staticmethod
+    def _init_ema(adapter, ema_decay):
+        # Shadow copy of the trainable (LoRA) params, or None when EMA is off.
+        if not ema_decay:
+            return None
+        return tree_map(lambda p: mx.array(p), adapter.model().trainable_parameters())
+
+    @staticmethod
+    def _update_ema(ema, ema_decay, adapter):
+        # ema = decay*ema + (1-decay)*live, over the trainable params.
+        if ema is None:
+            return None
+        updated = tree_map(
+            lambda e, p: ema_decay * e + (1.0 - ema_decay) * p,
+            ema,
+            adapter.model().trainable_parameters(),
+        )
+        mx.eval(updated)
+        return updated
+
+    @staticmethod
+    def _save_checkpoint(training_state, adapter, training_spec, ema) -> None:
+        # Save the checkpoint. With EMA enabled, swap the EMA weights into the model for the save and
+        # restore the live training weights afterwards so training continues from the live weights.
+        if ema is None:
+            training_state.save(adapter, training_spec)
+            return
+        model = adapter.model()
+        live = model.trainable_parameters()
+        model.update(ema)
+        try:
+            training_state.save(adapter, training_spec)
+        finally:
+            model.update(live)
+            mx.eval(model.trainable_parameters())
 
     @staticmethod
     def _unfreeze_lora_layers(module: nn.Module) -> None:
