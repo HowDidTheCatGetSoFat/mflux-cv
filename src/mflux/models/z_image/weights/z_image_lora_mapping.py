@@ -8,6 +8,17 @@ class ZImageLoRAMapping(LoRAMapping):
         for layer_type in ["layers", "noise_refiner", "context_refiner"]:
             targets.extend(ZImageLoRAMapping._get_layer_targets(layer_type))
         targets.extend(ZImageLoRAMapping._get_global_targets())
+        # DoRA: derive the magnitude-vector key patterns from each target's LoRA-A (down) patterns
+        # ("<base>.lora_A.weight" -> "<base>.dora_scale"), so DoRA adapters load their magnitude.
+        _suffixes = (".lora_A.weight", ".lora_A.default.weight", ".lora_down.weight", ".lora_down.default.weight")
+        for target in targets:
+            dora_patterns: list[str] = []
+            for down in target.possible_down_patterns:
+                for suffix in _suffixes:
+                    if down.endswith(suffix):
+                        dora_patterns.append(down[: -len(suffix)] + ".dora_scale")
+                        break
+            target.possible_dora_scale_patterns = dora_patterns
         return targets
 
     @staticmethod

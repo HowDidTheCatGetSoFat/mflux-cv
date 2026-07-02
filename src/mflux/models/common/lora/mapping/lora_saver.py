@@ -120,6 +120,12 @@ class LoRASaver:
 
     @staticmethod
     def _bake_lora_into_linear(base_linear: nn.Linear | nn.QuantizedLinear, lora_layer: LoRALinear) -> nn.Module:
+        if lora_layer.dora_scale is not None:
+            # DoRA: the effective delta is weight-decomposed (magnitude x normalized direction), so
+            # fold delta_weight() which already includes scale and the base-coupled normalization.
+            dense_weight = LoRASaver._dense_weight(base_linear)
+            delta = lora_layer.delta_weight(base_weight=dense_weight)
+            return LoRASaver._bake_delta_into_linear(base_linear, delta)
         delta = mx.matmul(lora_layer.lora_A, lora_layer.lora_B)
         delta = mx.transpose(delta)
         delta = lora_layer.scale * delta

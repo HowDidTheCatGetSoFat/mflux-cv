@@ -312,11 +312,11 @@ class TrainingTrainer:
         for _, child in module.named_modules():
             if isinstance(child, LoRALinear):
                 if getattr(child, "_mflux_lora_role", None) == "train":
-                    child.unfreeze(keys=["lora_A", "lora_B"], strict=False)
+                    child.unfreeze(keys=["lora_A", "lora_B", "dora_scale"], strict=False)
             elif isinstance(child, FusedLoRALinear):
                 for lora in child.loras:
                     if getattr(lora, "_mflux_lora_role", None) == "train":
-                        lora.unfreeze(keys=["lora_A", "lora_B"], strict=False)
+                        lora.unfreeze(keys=["lora_A", "lora_B", "dora_scale"], strict=False)
 
     @staticmethod
     def _preview_dimensions(training_spec: TrainingSpec, *, preview_image: Path | None = None) -> tuple[int, int]:

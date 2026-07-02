@@ -141,6 +141,8 @@ class ZImageTrainingAdapter(TrainingAdapter):
 
         weights[f"diffusion_model.{module_path}.lora_A.weight"] = mx.transpose(train_lora.lora_A)
         weights[f"diffusion_model.{module_path}.lora_B.weight"] = mx.transpose(train_lora.lora_B)
+        if train_lora.dora_scale is not None:
+            weights[f"diffusion_model.{module_path}.dora_scale"] = train_lora.dora_scale
 
     def _assistant_disabled(self):
         # Context manager that temporarily disables the assistant/training adapter LoRA(s).

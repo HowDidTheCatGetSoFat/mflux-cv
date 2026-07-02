@@ -380,6 +380,11 @@ class LoRALoader:
                     lora_layer.lora_B = lora_layer.lora_B * alpha_scale
                 replacement_layer = lora_layer
 
+            # DoRA: carry the per-output magnitude vector onto the new LoRA layer if present, so the
+            # weight-decomposed forward/bake is used (plain-LoRA files omit it and load unchanged).
+            if "dora_scale" in lora_data:
+                lora_layer.dora_scale = lora_data["dora_scale"]
+
             LoRALoader._replace_target_module(transformer, target_path, replacement_layer)
 
             return True

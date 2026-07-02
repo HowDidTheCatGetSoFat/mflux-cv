@@ -183,6 +183,9 @@ class LoraTargetSpec:
     # LoRA alpha; effective scale = alpha / rank (published-recipe convention).
     # None keeps the prior behavior (scale = 1.0).
     alpha: float | None = None
+    # Train these targets as DoRA (weight-decomposed LoRA): adds a per-output magnitude vector on
+    # top of the LoRA A/B. False = plain LoRA.
+    use_dora: bool = False
 
 
 @dataclass
@@ -454,6 +457,7 @@ class TrainingSpec:
                     rank=t["rank"],
                     blocks=blocks,
                     alpha=t.get("alpha"),
+                    use_dora=bool(t.get("use_dora", False)),
                 )
             )
 
