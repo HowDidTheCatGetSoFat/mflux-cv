@@ -1,7 +1,7 @@
 from __future__ import annotations
+
 import gc
 import math
-
 from pathlib import Path
 from typing import Any
 
@@ -237,6 +237,8 @@ class Ideogram4TrainingAdapter(TrainingAdapter):
         train_lora = TrainingUtil.get_train_lora(transformer, module_path)
         weights[f"diffusion_model.{module_path}.lora_A.weight"] = mx.transpose(train_lora.lora_A)
         weights[f"diffusion_model.{module_path}.lora_B.weight"] = mx.transpose(train_lora.lora_B)
+        if train_lora.dora_scale is not None:
+            weights[f"diffusion_model.{module_path}.dora_scale"] = train_lora.dora_scale
 
     @staticmethod
     def _pack_latents(encoded: mx.array, *, height: int, width: int) -> mx.array:
