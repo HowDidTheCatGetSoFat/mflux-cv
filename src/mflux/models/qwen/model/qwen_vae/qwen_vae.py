@@ -19,7 +19,24 @@ class QwenVAE(nn.Module):
         self.post_quant_conv = QwenImageCausalConv3D(16, 16, 1, 1, 0)
         self.quant_conv = QwenImageCausalConv3D(32, 32, 1, 1, 0)  # Keep 32 channels like diffusers
 
+    def _validate_convs(self) -> None:
+        # Some Qwen-Image revisions have shipped all-zero quant_conv / post_quant_conv weights, which
+        # silently zeroes the latent path (encode -> ~noise, decode -> a flat field). Fail loudly on
+        # first use instead of wasting a training run against garbage. Checked once.
+        if getattr(self, "_convs_validated", False):
+            return
+        self._convs_validated = True
+        for name in ("quant_conv", "post_quant_conv"):
+            weight = getattr(self, name).conv3d.weight
+            if bool(mx.all(weight == 0).item()):
+                raise ValueError(
+                    f"QwenVAE.{name} weights are all zero — the loaded VAE is broken (some Qwen-Image "
+                    "revisions shipped zeroed quant convs, which silently corrupts encode/decode). "
+                    "Re-download or re-save the model."
+                )
+
     def decode(self, latents: mx.array) -> mx.array:
+        self._validate_convs()
         if len(latents.shape) == 4:
             latents = latents.reshape(latents.shape[0], latents.shape[1], 1, latents.shape[2], latents.shape[3])
         latents = latents * QwenVAE.LATENTS_STD + QwenVAE.LATENTS_MEAN
@@ -28,6 +45,7 @@ class QwenVAE(nn.Module):
         return decoded
 
     def encode(self, latents: mx.array) -> mx.array:
+        self._validate_convs()
         if len(latents.shape) == 4:
             latents = latents.reshape(latents.shape[0], latents.shape[1], 1, latents.shape[2], latents.shape[3])
         latents = self.encoder(latents)
