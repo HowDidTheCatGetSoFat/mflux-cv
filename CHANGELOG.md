@@ -7,11 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🎨 New Model Support
+
+- **Krea 2**: Add text-to-image support for `krea/Krea-2-Turbo` — a single-stream MMDiT built on the Qwen-Image stack (Qwen-Image VAE + a 12-layer Qwen3-VL-4B text-encoder tap). Includes the `mflux-generate-krea2` CLI (live progress, `--metadata`, stepwise output), `er_sde` and Euler samplers, and `mflux-save` quantization caching.
+- **Krea 2 Raw + LoRA training**: Add `krea/Krea-2-Raw` as a trainable base and `mflux-train` LoRA training for Krea 2 (flow-matching velocity, QLoRA over the quantized base, gradient checkpointing across the 28 blocks). The transformer also loads from the diffusers `transformer/` shard layout in addition to the native single-file checkpoint, and the official `krea/Krea-2-LoRA-*` adapters load as-is. Train on Raw, run the adapter on Turbo (Krea's recommended workflow). (#462)
+
 ### ✨ Features
 
 - **LyCORIS LoKr adapters (FLUX.1 and FLUX.2)**: Load community LyCORIS LoKr safetensors through the existing `--lora-paths` / `lora_paths` API. Supports direct and factorized (`lokr_w1_a`/`lokr_w1_b`, `lokr_w2_a`/`lokr_w2_b`, optional `lokr_t2`) tensors, observed LyCORIS key layouts, alpha scaling for decomposed factors, optional `dora_scale`, multi-adapter fusion with classic LoRA, and baking into non-quantized base weights as well as quantized layers (via dequantization and re-quantization). Inference applies the Kronecker product without materializing full dense deltas for standard (non-DoRA) LoKr layers.
 
----
+### ✨ Improvements
+
+- **Atomic `--lora` and `--image` flags**: Pair each path with its value on a single, repeatable flag — `--lora A.safetensors 0.7 --lora B.safetensors` (scale defaults to `1.0`) and `--image photo.jpg 0.6` (strength defaults to the model default). This removes the positional-alignment footgun of the parallel `--lora-paths`/`--lora-scales` and `--image-path`/`--image-strength` lists, which remain fully supported and are marked deprecated in `--help`. (#357)
 
 ## [0.18.0] - 2026-06-07
 
