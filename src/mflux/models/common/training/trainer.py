@@ -132,6 +132,13 @@ class TrainingTrainer:
         )
 
         error = (clean_image + predicted_noise - pure_noise).square()
+        # Masked loss: when a per-example mask is attached, weight the loss by it so training focuses
+        # on the masked region (e.g. a subject/face) rather than the whole frame. Broadcast the mask
+        # over the channel axis before normalizing so the result stays on the same scale as .mean()
+        # (an all-ones mask reproduces the plain mean exactly).
+        if item.mask is not None:
+            weights = mx.broadcast_to(item.mask, error.shape)
+            return (error * weights).sum() / weights.sum()
         return error.mean()
 
     @staticmethod

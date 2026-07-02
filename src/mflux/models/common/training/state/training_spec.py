@@ -15,6 +15,7 @@ class DataSpec:
     image: Path
     input_image: Path | None
     prompt: str
+    mask: Path | None = None
 
     @classmethod
     def create(cls, param: Mapping[str, Any], absolute_or_relative_path: str, base_path: Path | None) -> "DataSpec":
@@ -30,6 +31,23 @@ class DataSpec:
                 absolute_or_relative_path=absolute_or_relative_path,
                 base_path=base_path,
             )
+
+        # Optional loss mask: explicit "mask" in the config, otherwise auto-discover a sibling
+        # "<image-stem>.mask.<png|jpg|jpeg|webp>" next to the image. When present the training loss
+        # is weighted by it (white = full weight, black = mask_min_value floor).
+        mask = None
+        if param.get("mask", None) is not None:
+            mask = DataSpec._resolve_relative_to_data_path(
+                Path(str(param["mask"])),
+                absolute_or_relative_path=absolute_or_relative_path,
+                base_path=base_path,
+            )
+        else:
+            for ext in (".mask.png", ".mask.jpg", ".mask.jpeg", ".mask.webp"):
+                candidate = image_path.with_name(image_path.stem + ext)
+                if candidate.exists():
+                    mask = candidate
+                    break
 
         has_prompt = "prompt" in param and param["prompt"] is not None
         has_prompt_file = "prompt_file" in param and param["prompt_file"] is not None
@@ -50,7 +68,7 @@ class DataSpec:
         else:
             raise ValueError("Each data item must provide either 'prompt' or 'prompt_file'.")
 
-        return cls(image=image_path, input_image=input_image, prompt=prompt)
+        return cls(image=image_path, input_image=input_image, prompt=prompt, mask=mask)
 
     @staticmethod
     def _resolve_relative_to_data_path(path: Path, *, absolute_or_relative_path: str, base_path: Path | None) -> Path:
@@ -82,6 +100,10 @@ class TrainingLoopSpec:
     # fine detail), "style" (favors high-noise / coarse style). Applies to adapters that sample
     # sigma from the index grid (flux/z-image/ernie); Ideogram has its own sample_sigma override.
     timestep_type: str | None = None
+    # Masked-loss floor: with a per-image mask, unmasked (black) regions get this weight instead of
+    # 0 so the background still contributes a little. 1.0 = mask has no effect. Only used when a data
+    # item has a mask.
+    mask_min_value: float = 0.1
 
 
 @dataclass
@@ -514,7 +536,10 @@ class TrainingSpec:
             [
                 p
                 for p in root_dir.iterdir()
-                if p.is_file() and p.suffix.lower() in image_exts and p.resolve() not in excluded
+                if p.is_file()
+                and p.suffix.lower() in image_exts
+                and not p.stem.endswith(".mask")  # "<img>.mask.<ext>" are loss masks, not training images
+                and p.resolve() not in excluded
             ]
         )
         if not image_files:

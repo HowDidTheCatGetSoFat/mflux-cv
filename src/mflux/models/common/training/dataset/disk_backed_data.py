@@ -34,7 +34,9 @@ class DiskBackedData(Sequence[DataItem]):
             raise IndexError(idx)
 
         spec = self._data_specs[idx]
-        clean_latents, cond, width, height = TrainingDataCache.load_tensors(paths=self._cache_paths, data_id=idx)
+        clean_latents, cond, width, height, mask = TrainingDataCache.load_tensors(
+            paths=self._cache_paths, data_id=idx
+        )
         return DataItem(
             data_id=idx,
             prompt=spec.prompt,
@@ -43,4 +45,5 @@ class DiskBackedData(Sequence[DataItem]):
             cond=cond,
             width=width,
             height=height,
+            mask=mask,
         )

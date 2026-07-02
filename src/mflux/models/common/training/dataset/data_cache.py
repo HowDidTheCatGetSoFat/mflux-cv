@@ -43,6 +43,7 @@ class TrainingDataCache:
         height: int,
         clean_latents: mx.array,
         cond: Any,
+        mask: mx.array | None = None,
     ) -> None:
         tensor_path = paths.data / f"{data_id:07d}.safetensors"
         meta_path = paths.data / f"{data_id:07d}.json"
@@ -61,6 +62,9 @@ class TrainingDataCache:
                 tensors[f"cond__{k}"] = v
         else:
             raise TypeError("TrainingDataCache only supports cond as mx.array or dict[str, mx.array]")
+
+        if mask is not None:
+            tensors["mask"] = mask
 
         # Atomic-ish write: write to temp and rename.
         # Note: mx.save_safetensors expects a `.safetensors` filename.
@@ -85,7 +89,7 @@ class TrainingDataCache:
         tmp_meta.replace(meta_path)
 
     @staticmethod
-    def load_tensors(*, paths: CachePaths, data_id: int) -> tuple[mx.array, Any, int, int]:
+    def load_tensors(*, paths: CachePaths, data_id: int) -> tuple[mx.array, Any, int, int, mx.array | None]:
         tensor_path = paths.data / f"{data_id:07d}.safetensors"
         if not tensor_path.exists():
             raise FileNotFoundError(f"Cached data item not found: {tensor_path}")
@@ -120,4 +124,5 @@ class TrainingDataCache:
                 if k.startswith("cond__"):
                     cond_dict[k[len("cond__") :]] = v
             cond = cond_dict
-        return clean_latents, cond, width, height
+        mask = tensors.get("mask")
+        return clean_latents, cond, width, height, mask

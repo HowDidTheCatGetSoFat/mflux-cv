@@ -17,6 +17,7 @@ class DataItem:
         cond: Any,
         width: int,
         height: int,
+        mask: mx.array | None = None,
     ):
         self.data_id = data_id
         self.prompt = prompt
@@ -25,6 +26,8 @@ class DataItem:
         self.cond = cond
         self.width = int(width)
         self.height = int(height)
+        # Optional per-example loss mask (latent-resolution, broadcastable over the loss tensor).
+        self.mask = mask
 
 
 class Batch:
