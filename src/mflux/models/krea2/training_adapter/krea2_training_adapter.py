@@ -91,7 +91,7 @@ class Krea2TrainingAdapter(TrainingAdapter):
         mx.eval(clean_latents, embeds)
         return clean_latents, {"embeds": embeds}
 
-    def predict_noise(self, *, t: int, latents_t: mx.array, sigmas: mx.array, cond: Any, config: Config) -> mx.array:  # noqa: ARG002
+    def predict_noise(self, *, t: int, latents_t: mx.array, sigmas: mx.array, cond: Any, config: Config, sigma: float | None = None) -> mx.array:  # noqa: ARG002
         # The transformer takes the sigma value as its timestep (sampler feeds sigmas[t] at inference)
         # and predicts the flow-matching velocity noise - clean, which is the target the loss expects.
         timestep = sigmas[t].reshape(1)
@@ -157,6 +157,8 @@ class Krea2TrainingAdapter(TrainingAdapter):
         train_lora = TrainingUtil.get_train_lora(self._krea2.transformer, module_path)
         weights[f"transformer.{module_path}.lora_A.weight"] = mx.transpose(train_lora.lora_A)
         weights[f"transformer.{module_path}.lora_B.weight"] = mx.transpose(train_lora.lora_B)
+        if train_lora.dora_scale is not None:
+            weights[f"transformer.{module_path}.dora_scale"] = train_lora.dora_scale
 
     @staticmethod
     def _caption_text(prompt: str) -> str:
