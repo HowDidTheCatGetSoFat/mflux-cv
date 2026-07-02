@@ -4,7 +4,7 @@ from mflux.models.common.lora.mapping.lora_mapping import LoRAMapping, LoRATarge
 class ErnieLoRAMapping(LoRAMapping):
     @staticmethod
     def get_mapping() -> list[LoRATarget]:
-        return [
+        targets = [
             LoRATarget(
                 model_path="adaln_modulation",
                 possible_up_patterns=[
@@ -261,3 +261,15 @@ class ErnieLoRAMapping(LoRAMapping):
                 ],
             ),
         ]
+        # DoRA: derive the magnitude-vector key patterns from each target's LoRA-A (down) patterns
+        # ("<base>.lora_A.weight" -> "<base>.dora_scale"), so DoRA adapters load their magnitude.
+        _suffixes = (".lora_A.weight", ".lora_A.default.weight", ".lora_down.weight", ".lora_down.default.weight")
+        for target in targets:
+            dora_patterns: list[str] = []
+            for down in target.possible_down_patterns:
+                for suffix in _suffixes:
+                    if down.endswith(suffix):
+                        dora_patterns.append(down[: -len(suffix)] + ".dora_scale")
+                        break
+            target.possible_dora_scale_patterns = dora_patterns
+        return targets

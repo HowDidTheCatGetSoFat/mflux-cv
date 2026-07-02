@@ -19,6 +19,17 @@ class Flux2LoRAMapping(LoRAMapping):
 
         Flux2LoRAMapping._add_bfl_double_block_lycoris_lokr_patterns(targets)
 
+        # DoRA (our own saves): derive "<base>.dora_scale" from each target's LoRA-A (down) patterns so a
+        # mflux-trained DoRA adapter round-trips. Extends, keeping the observed-LyCORIS patterns above.
+        _suffixes = (".lora_A.weight", ".lora_A.default.weight", ".lora_down.weight", ".lora_down.default.weight")
+        for target in targets:
+            for down in target.possible_down_patterns:
+                for suffix in _suffixes:
+                    if down.endswith(suffix):
+                        pattern = down[: -len(suffix)] + ".dora_scale"
+                        if pattern not in target.possible_dora_scale_patterns:
+                            target.possible_dora_scale_patterns.append(pattern)
+                        break
         return targets
 
     @staticmethod

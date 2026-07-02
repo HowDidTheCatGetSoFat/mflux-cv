@@ -143,3 +143,5 @@ class ErnieTrainingAdapter(TrainingAdapter):
         lora = TrainingUtil.get_train_lora(transformer, module_path)
         weights[f"transformer.{module_path}.lora_A.weight"] = mx.transpose(lora.lora_A)
         weights[f"transformer.{module_path}.lora_B.weight"] = mx.transpose(lora.lora_B)
+        if lora.dora_scale is not None:
+            weights[f"transformer.{module_path}.dora_scale"] = lora.dora_scale

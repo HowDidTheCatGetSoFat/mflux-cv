@@ -167,3 +167,5 @@ class Flux1TrainingAdapter(TrainingAdapter):
         train_lora = TrainingUtil.get_train_lora(transformer, module_path)
         weights[f"transformer.{module_path}.lora_A.weight"] = mx.transpose(train_lora.lora_A)
         weights[f"transformer.{module_path}.lora_B.weight"] = mx.transpose(train_lora.lora_B)
+        if train_lora.dora_scale is not None:
+            weights[f"transformer.{module_path}.dora_scale"] = train_lora.dora_scale
