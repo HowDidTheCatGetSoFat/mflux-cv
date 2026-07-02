@@ -176,6 +176,10 @@ class LoraTargetSpec:
 class LoraLayersSpec:
     targets: list[LoraTargetSpec]
     state_path: str | None = None
+    # Optional path to an existing LoRA .safetensors to initialize the freshly-injected trainable
+    # layers from, so a new run continues / fine-tunes from it (the file must match the targets'
+    # ranks and module paths). None = start from zero-initialized LoRA layers.
+    init_path: str | None = None
 
 
 @dataclass
@@ -440,7 +444,7 @@ class TrainingSpec:
                 )
             )
 
-        lora_layers = LoraLayersSpec(targets=targets)
+        lora_layers = LoraLayersSpec(targets=targets, init_path=lora_conf.get("init_path"))
 
         if is_edit and any(item.input_image is None for item in data):
             raise ValueError("Edit training requires input_image for every data item.")

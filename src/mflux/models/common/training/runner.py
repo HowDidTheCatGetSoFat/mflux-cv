@@ -151,6 +151,10 @@ class TrainingRunner:
             )
         else:
             inject_lora_targets(adapter.transformer(), training_spec.lora_layers.targets)
+            # Optionally initialize the trainable LoRA layers from an existing adapter so a new run
+            # continues / fine-tunes from it (rather than starting from zero).
+            if training_spec.lora_layers.init_path is not None:
+                adapter.load_lora_adapter(path=training_spec.lora_layers.init_path)
 
         dataset = None
         iterator = None
