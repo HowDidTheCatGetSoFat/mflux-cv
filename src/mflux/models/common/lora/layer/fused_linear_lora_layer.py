@@ -14,13 +14,17 @@ class FusedLoRALinear(nn.Module):
     def __call__(self, x):
         base_out = self.base_linear(x)
 
-        if any(isinstance(lora, LoKrLinear) and lora.dora_scale is not None for lora in self.loras):
+        # If ANY stacked adapter is DoRA (LoRA or LoKr with a magnitude vector), the delta couples
+        # with the running weight, so accumulate in weight space instead of the fast activation sum.
+        if any(getattr(lora, "dora_scale", None) is not None for lora in self.loras):
             base_weight = self._dense_base_weight()
             current_weight = base_weight
             for lora in self.loras:
                 if isinstance(lora, LoRALinear):
-                    delta = mx.transpose(mx.matmul(lora.lora_A, lora.lora_B))
-                    current_weight = current_weight + lora.scale * delta.astype(current_weight.dtype)
+                    # delta_weight() folds in scale and applies the DoRA decomposition against the
+                    # running weight when the layer has a dora_scale (plain LoRA = scaled A·B delta).
+                    delta = lora.delta_weight(base_weight=current_weight)
+                    current_weight = current_weight + delta.astype(current_weight.dtype)
                 elif isinstance(lora, LoKrLinear):
                     delta = lora.delta_weight(base_weight=current_weight)
                     current_weight = current_weight + lora.scale * delta.astype(current_weight.dtype)
