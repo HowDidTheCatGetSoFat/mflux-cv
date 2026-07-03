@@ -50,4 +50,8 @@ class FusedLoRALinear(nn.Module):
                 bits=self.base_linear.bits,
                 mode=self.base_linear.mode,
             )
+        # Ideogram's Fp8Linear stores raw fp8 + a per-output scale (mirror LoRALinear._dense_base_weight):
+        # without this the DoRA weight-space branch would use the raw uint8 fp8 bytes as the base weight.
+        if hasattr(self.base_linear, "weight_scale"):
+            return mx.from_fp8(self.base_linear.weight, dtype=mx.float32) * self.base_linear.weight_scale[:, None]
         return self.base_linear.weight
