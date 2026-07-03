@@ -60,7 +60,13 @@ class Optimizer:
         opt_cls = Optimizers.from_alias(spec.name)
         # Pass any caller-provided optimizer kwargs (weight_decay, betas, eps, ...). Previously
         # only learning_rate was forwarded, so these silently fell back to MLX defaults.
-        kwargs = {"learning_rate": Optimizer._build_lr(spec), **(spec.optimizer_params or {})}
+        extra_params = dict(spec.optimizer_params or {})
+        if "learning_rate" in extra_params:
+            raise ValueError(
+                "optimizer_params must not set 'learning_rate'; use the learning_rate / lr_schedule "
+                "fields so the warmup/cosine schedule is not silently discarded."
+            )
+        kwargs = {"learning_rate": Optimizer._build_lr(spec), **extra_params}
         # noinspection PyCallingNonCallable
         opt = opt_cls(**kwargs)
 

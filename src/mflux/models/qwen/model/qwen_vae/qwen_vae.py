@@ -25,7 +25,6 @@ class QwenVAE(nn.Module):
         # first use instead of wasting a training run against garbage. Checked once.
         if getattr(self, "_convs_validated", False):
             return
-        self._convs_validated = True
         for name in ("quant_conv", "post_quant_conv"):
             weight = getattr(self, name).conv3d.weight
             if bool(mx.all(weight == 0).item()):
@@ -34,6 +33,8 @@ class QwenVAE(nn.Module):
                     "revisions shipped zeroed quant convs, which silently corrupts encode/decode). "
                     "Re-download or re-save the model."
                 )
+        # Only mark validated after the checks pass, so a caught error is retried rather than skipped.
+        self._convs_validated = True
 
     def decode(self, latents: mx.array) -> mx.array:
         self._validate_convs()

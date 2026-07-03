@@ -27,7 +27,7 @@ def inject_lora_targets(transformer: Any, targets: list[LoraTargetSpec]) -> None
         from mflux.models.ideogram4.model.ideogram4_transformer.fp8_linear import Fp8Linear
 
         linear_types: tuple = (nn.Linear, nn.QuantizedLinear, Fp8Linear)
-    except Exception:
+    except ImportError:
         linear_types = (nn.Linear, nn.QuantizedLinear)
 
     def _init_dora(lora: LoRALinear) -> None:
