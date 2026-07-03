@@ -5,7 +5,6 @@ from pathlib import Path
 
 import mlx.core as mx
 import mlx.core.random as mx_random  # type: ignore[import-not-found]
-import numpy as np
 from PIL import Image as PILImage
 
 from mflux.models.common.config.model_config import ModelConfig
@@ -57,24 +56,6 @@ class TrainingRunner:
             error_template=f"Image too small for training (needs >=16px): {image_path} ({{width}}x{{height}})",
         )
 
-    @staticmethod
-    def _load_mask(*, mask_path, clean_latents, mask_min_value: float):
-        # Load an optional per-image loss mask: resize to the latent's spatial size and floor at
-        # mask_min_value (so the background still contributes a little). Only meaningful for
-        # image-shaped (4D) latents; returns None otherwise (masked loss then no-ops for the item).
-        if mask_path is None:
-            return None
-        if clean_latents.ndim != 4:
-            print(
-                f"Ignoring loss mask {mask_path}: masked loss needs image-shaped latents "
-                f"(got {tuple(clean_latents.shape)})."
-            )
-            return None
-        lh, lw = int(clean_latents.shape[-2]), int(clean_latents.shape[-1])
-        with PILImage.open(mask_path) as m:
-            mask_img = m.convert("L").resize((lw, lh))
-        arr = mx.array(np.array(mask_img, dtype=np.float32) / 255.0)
-        return mx.maximum(arr, mask_min_value).reshape(1, 1, lh, lw).astype(clean_latents.dtype)
 
     @staticmethod
     def train(*, config_path: str | None, resume_path: str | None) -> tuple[TrainingAdapter, TrainingSpec]:
@@ -204,11 +185,6 @@ class TrainingRunner:
                     height=height,
                     input_image_path=item.input_image,
                 )
-                mask = TrainingRunner._load_mask(
-                    mask_path=item.mask,
-                    clean_latents=clean_latents,
-                    mask_min_value=training_spec.training_loop.mask_min_value,
-                )
                 TrainingDataCache.save_item(
                     paths=cache_paths,
                     data_id=i,
@@ -218,9 +194,8 @@ class TrainingRunner:
                     height=height,
                     clean_latents=clean_latents,
                     cond=cond,
-                    mask=mask,
                 )
-                del clean_latents, cond, mask
+                del clean_latents, cond
                 gc.collect()
                 mx.clear_cache()
 
@@ -240,11 +215,6 @@ class TrainingRunner:
                     height=height,
                     input_image_path=item.input_image,
                 )
-                mask = TrainingRunner._load_mask(
-                    mask_path=item.mask,
-                    clean_latents=clean_latents,
-                    mask_min_value=training_spec.training_loop.mask_min_value,
-                )
                 encoded_data.append(
                     DataItem(
                         data_id=i,
@@ -254,7 +224,6 @@ class TrainingRunner:
                         cond=cond,
                         width=width,
                         height=height,
-                        mask=mask,
                         is_reg=item.is_reg,
                     )
                 )

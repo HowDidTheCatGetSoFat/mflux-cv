@@ -141,15 +141,7 @@ class TrainingTrainer:
         )
 
         error = (clean_image + predicted_noise - pure_noise).square()
-        # Masked loss: when a per-example mask is attached, weight the loss by it so training focuses
-        # on the masked region (e.g. a subject/face) rather than the whole frame. Broadcast the mask
-        # over the channel axis before normalizing so the result stays on the same scale as .mean()
-        # (an all-ones mask reproduces the plain mean exactly).
-        if item.mask is not None:
-            weights = mx.broadcast_to(item.mask, error.shape)
-            loss = (error * weights).sum() / weights.sum()
-        else:
-            loss = error.mean()
+        loss = error.mean()
         # Prior preservation: scale regularization images' loss by reg_weight relative to subject images.
         if item.is_reg:
             loss = loss * training_spec.training_loop.reg_weight
@@ -225,6 +217,10 @@ class TrainingTrainer:
             if not math.isfinite(train_loss):
                 del grads
                 nonfinite_skips += 1
+                # Drop any partial accumulation window: a skipped micro-batch (especially on a
+                # window boundary) must not carry its accumulated grads into the next window,
+                # which would apply an oversized optimizer step.
+                accumulated_grads = None
                 if training_spec.low_ram:
                     mx.clear_cache()
                 continue
