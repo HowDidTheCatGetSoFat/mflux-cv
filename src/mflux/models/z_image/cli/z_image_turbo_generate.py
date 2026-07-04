@@ -1,6 +1,3 @@
-from datetime import datetime
-from pathlib import Path
-
 from mflux.callbacks.callback_manager import CallbackManager
 from mflux.cli.parser.parsers import CommandLineParser, lora_init_kwargs_from_args
 from mflux.models.common.config import ModelConfig
@@ -9,40 +6,7 @@ from mflux.models.z_image.variants.z_image import ZImage
 from mflux.utils.dimension_resolver import DimensionResolver
 from mflux.utils.exceptions import PromptFileReadError, StopImageGenerationException
 from mflux.utils.prompt_util import PromptUtil
-
-
-def _nodot(val):
-    s = f"{val:g}"
-    return s.replace(".", "") if "." in s else s + "0"
-
-
-def _build_saveinfo_filename(args, seed):
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    sched_tag = getattr(args, "scheduler", "linear")
-    sa_parts = []
-    if getattr(args, "cosine", False):
-        sa_parts.append("cos")
-    if getattr(args, "karras", False):
-        sa_parts.append("karras")
-    if getattr(args, "exponential", False):
-        sa_parts.append("exp")
-    if getattr(args, "shift", None) is not None:
-        sa_parts.append(f"shift_{_nodot(args.shift)}")
-    if getattr(args, "mcf_max_change", None) is not None:
-        sa_parts.append(f"mcf_{_nodot(args.mcf_max_change)}")
-    sa = "_".join(sa_parts)
-    lora_tag = "NoLora"
-    if getattr(args, "lora_paths", None):
-        names = [Path(p).stem for p in args.lora_paths]
-        lora_tag = "+".join(names)
-        if getattr(args, "lora_scales", None):
-            sc = "+".join(_nodot(s) for s in args.lora_scales)
-            lora_tag = f"{lora_tag}-{sc}"
-    parts = [timestamp, str(seed), f"S{args.steps}", lora_tag, sched_tag]
-    if sa:
-        parts.append(sa)
-    output_dir = str(Path(args.output).parent)
-    return str(Path(output_dir) / ("_".join(parts) + ".png"))
+from mflux.utils.saveinfo_util import build_saveinfo_filename
 
 
 def main():
@@ -97,7 +61,7 @@ def main():
                 sigma_schedule=args.sigma_schedule,
             )
             # 4. Save the image
-            output_path = _build_saveinfo_filename(args, seed) if args.saveinfo else args.output.format(seed=seed)
+            output_path = build_saveinfo_filename(args, seed) if args.saveinfo else args.output.format(seed=seed)
             image.save(path=output_path, export_json_metadata=args.metadata)
     except (StopImageGenerationException, PromptFileReadError) as exc:
         print(exc)
