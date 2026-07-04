@@ -6,6 +6,10 @@ from mflux.models.common.lora.layer.linear_lokr_layer import LoKrLinear
 from mflux.models.common.lora.layer.linear_lora_layer import LoRALinear
 
 
+class LoRABakeError(Exception):
+    """A LoRA/LoKr/DoRA layer could not be baked into its base weight."""
+
+
 def _is_fp8_base(linear) -> bool:
     # fp8 bases store raw uint8 codes in .weight plus a per-row weight_scale — a float delta
     # CANNOT be folded into the codes directly (`merged.astype(uint8)` rounds it away). They
@@ -39,7 +43,13 @@ def _fold_fp8_delta_to_q8(base_linear, delta: mx.array) -> nn.Module:
 
 class LoRASaver:
     @staticmethod
-    def bake_and_strip_lora(module: nn.Module) -> nn.Module:
+    def bake_and_strip_lora(module: nn.Module, strict: bool = False) -> nn.Module:
+        # strict=True (saving): any layer that fails to bake aborts with LoRABakeError, so we never
+        # write a checkpoint that silently drops a layer's adaptation. strict=False (inference bake):
+        # a failed layer is left as its live LoRA wrapper (still correct via the forward path, just
+        # unbaked) and only warned about, so one bad layer does not break generation.
+        failures: list[str] = []
+
         def _assign(parent, attr_name, idx, new_child):
             if parent is None:
                 return
@@ -50,20 +60,31 @@ class LoRASaver:
             elif attr_name is not None:
                 setattr(parent, attr_name, new_child)
 
+        def _guard(layer, bake):
+            try:
+                return bake()
+            except LoRABakeError as e:
+                failures.append(str(e))
+                print(f"⚠️  Skipping LoRA bake for a layer ({e}).")
+                return layer
+
         def _bake_single(lora_layer: LoRALinear) -> nn.Module:
-            return LoRASaver._bake_lora_into_linear(lora_layer.linear, lora_layer)
+            return _guard(lora_layer, lambda: LoRASaver._bake_lora_into_linear(lora_layer.linear, lora_layer))
 
         def _bake_lokr(lokr_layer: LoKrLinear) -> nn.Module:
-            return LoRASaver._bake_lokr_into_linear(lokr_layer.linear, lokr_layer)
+            return _guard(lokr_layer, lambda: LoRASaver._bake_lokr_into_linear(lokr_layer.linear, lokr_layer))
 
         def _bake_fused(fused_layer: FusedLoRALinear) -> nn.Module:
-            current = fused_layer.base_linear
-            for lora in fused_layer.loras:
-                if isinstance(lora, LoRALinear):
-                    current = LoRASaver._bake_lora_into_linear(current, lora)
-                elif isinstance(lora, LoKrLinear):
-                    current = LoRASaver._bake_lokr_into_linear(current, lora)
-            return current
+            def _fold():
+                current = fused_layer.base_linear
+                for lora in fused_layer.loras:
+                    if isinstance(lora, LoRALinear):
+                        current = LoRASaver._bake_lora_into_linear(current, lora)
+                    elif isinstance(lora, LoKrLinear):
+                        current = LoRASaver._bake_lokr_into_linear(current, lora)
+                return current
+
+            return _guard(fused_layer, _fold)
 
         def _walk(obj, parent=None, attr_name=None, idx=None):
             # Replace wrappers first. fp8 bases are handled inside _bake_delta_into_linear
@@ -101,6 +122,11 @@ class LoRASaver:
                         _walk(child, obj, name, None)
 
         _walk(module, None, None, None)
+        if strict and failures:
+            raise LoRABakeError(
+                f"Refusing to save: {len(failures)} layer(s) failed to bake, so the checkpoint would "
+                f"silently omit their adaptation:\n  " + "\n  ".join(failures)
+            )
         return module
 
     @staticmethod
@@ -150,11 +176,7 @@ class LoRASaver:
 
         dense_weight = LoRASaver._dense_weight(base_linear)
         if dense_weight.shape != delta.shape:
-            print(
-                "⚠️  Skipping LoRA bake due to shape mismatch: "
-                f"weight {dense_weight.shape} vs delta {delta.shape}"
-            )
-            return base_linear
+            raise LoRABakeError(f"shape mismatch: weight {dense_weight.shape} vs delta {delta.shape}")
 
         merged = dense_weight + delta.astype(dense_weight.dtype)
 
@@ -175,5 +197,4 @@ class LoRASaver:
             base_linear.weight = merged.astype(base_linear.weight.dtype)
             return base_linear
         except Exception as e:  # noqa: BLE001
-            print(f"⚠️  Failed to bake LoRA into base layer: {e}")
-            return base_linear
+            raise LoRABakeError(f"failed to fold delta into base layer: {e}") from e

@@ -36,8 +36,10 @@ class ModelSaver:
         for attr_name, subdir in tqdm(components, desc="Saving components", unit="component"):
             component = getattr(model, attr_name, None)
             if component is not None:
-                # Bake and strip any LoRA wrappers to avoid duplicating shared weights
-                LoRASaver.bake_and_strip_lora(component)
+                # Bake and strip any LoRA wrappers to avoid duplicating shared weights. strict=True:
+                # fail the save loudly if any layer can't bake rather than write a checkpoint that
+                # silently drops that layer's adaptation.
+                LoRASaver.bake_and_strip_lora(component, strict=True)
                 ModelSaver._save_weights(base_path, bits, component, subdir)
 
     @staticmethod
