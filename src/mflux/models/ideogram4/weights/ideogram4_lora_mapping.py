@@ -1,4 +1,4 @@
-from mflux.models.common.lora.mapping.lora_mapping import LoRAMapping, LoRATarget
+from mflux.models.common.lora.mapping.lora_mapping import LoRAMapping, LoRATarget, derive_lokr_patterns
 
 
 class Ideogram4LoRAMapping(LoRAMapping):
@@ -173,4 +173,4 @@ class Ideogram4LoRAMapping(LoRAMapping):
                         dora_patterns.append(down[: -len(suffix)] + ".dora_scale")
                         break
             target.possible_dora_scale_patterns = dora_patterns
-        return targets
+        return derive_lokr_patterns(targets)

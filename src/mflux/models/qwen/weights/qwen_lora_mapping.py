@@ -1,12 +1,12 @@
 from typing import List
 
-from mflux.models.common.lora.mapping.lora_mapping import LoRAMapping, LoRATarget
+from mflux.models.common.lora.mapping.lora_mapping import LoRAMapping, LoRATarget, derive_lokr_patterns
 
 
 class QwenLoRAMapping(LoRAMapping):
     @staticmethod
     def get_mapping() -> List[LoRATarget]:
-        return [
+        targets = [
             LoRATarget(
                 model_path="transformer_blocks.{block}.attn.to_q",
                 possible_up_patterns=[
@@ -244,3 +244,4 @@ class QwenLoRAMapping(LoRAMapping):
                 ],
             ),
         ]
+        return derive_lokr_patterns(targets)

@@ -81,6 +81,8 @@ class Krea2LoRAMapping(LoRAMapping):
             possible_up_patterns=Krea2LoRAMapping._matrix_patterns(module_paths, flat_paths, "up"),
             possible_down_patterns=Krea2LoRAMapping._matrix_patterns(module_paths, flat_paths, "down"),
             possible_alpha_patterns=Krea2LoRAMapping._alpha_patterns(module_paths, flat_paths),
+            possible_lokr_w1_patterns=Krea2LoRAMapping._lokr_patterns(module_paths, flat_paths, "lokr_w1"),
+            possible_lokr_w2_patterns=Krea2LoRAMapping._lokr_patterns(module_paths, flat_paths, "lokr_w2"),
         )
 
     @staticmethod
@@ -128,6 +130,19 @@ class Krea2LoRAMapping(LoRAMapping):
                 f"{prefix}{path}.alpha" for prefix in ("", "transformer.", "diffusion_model.", "base_model.model.")
             )
         patterns.extend(f"lora_unet_{path}.alpha" for path in flat_paths)
+        return patterns
+
+    @staticmethod
+    def _lokr_patterns(module_paths: list[str], flat_paths: list[str], factor: str) -> list[str]:
+        # LyCORIS/LoKr factors (lokr_w1 / lokr_w2), mirroring the prefix handling of
+        # the up/down/alpha patterns so a Krea 2 LoKr adapter is recognized regardless
+        # of whether it is stored bare or under transformer./diffusion_model./base_model.model.
+        patterns = []
+        for path in module_paths:
+            patterns.extend(
+                f"{prefix}{path}.{factor}" for prefix in ("", "transformer.", "diffusion_model.", "base_model.model.")
+            )
+        patterns.extend(f"lora_unet_{path}.{factor}" for path in flat_paths)
         return patterns
 
     @staticmethod
