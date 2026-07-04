@@ -43,12 +43,24 @@ def _fold_fp8_delta_to_q8(base_linear, delta: mx.array) -> nn.Module:
 
 class LoRASaver:
     @staticmethod
-    def bake_and_strip_lora(module: nn.Module, strict: bool = False) -> nn.Module:
+    def bake_and_strip_lora(module: nn.Module, strict: bool = False, skip_quantized: bool = False) -> nn.Module:
         # strict=True (saving): any layer that fails to bake aborts with LoRABakeError, so we never
         # write a checkpoint that silently drops a layer's adaptation. strict=False (inference bake):
         # a failed layer is left as its live LoRA wrapper (still correct via the forward path, just
         # unbaked) and only warned about, so one bad layer does not break generation.
+        # skip_quantized=True (inference bake): do NOT fold into a QuantizedLinear base. Baking there
+        # dequantizes and RE-quantizes the merged weight, and the re-rounding diverges from the base's
+        # original codes; over a deep transformer that compounds badly (verified: a z-image q8 LoRA
+        # renders ~60% wrong when baked vs correct when applied live). The q8 matmul is already fast,
+        # so the small live LoRA add is a good trade. fp8 bases still fold to q8 (a strict precision
+        # gain over fp8) and dense bases still bake losslessly.
         failures: list[str] = []
+
+        def _skip_quantized_base(obj) -> bool:
+            if not skip_quantized:
+                return False
+            base = obj.base_linear if isinstance(obj, FusedLoRALinear) else obj.linear
+            return isinstance(base, nn.QuantizedLinear)
 
         def _assign(parent, attr_name, idx, new_child):
             if parent is None:
@@ -90,15 +102,15 @@ class LoRASaver:
             # Replace wrappers first. fp8 bases are handled inside _bake_delta_into_linear
             # (dequantize once + fold + requantize to q8 — folding into the raw uint8 codes
             # would silently round the delta away).
-            if isinstance(obj, FusedLoRALinear):
+            if isinstance(obj, FusedLoRALinear) and not _skip_quantized_base(obj):
                 new_child = _bake_fused(obj)
                 _assign(parent, attr_name, idx, new_child)
                 obj = new_child
-            elif isinstance(obj, LoKrLinear):
+            elif isinstance(obj, LoKrLinear) and not _skip_quantized_base(obj):
                 new_child = _bake_lokr(obj)
                 _assign(parent, attr_name, idx, new_child)
                 obj = new_child
-            elif isinstance(obj, LoRALinear):
+            elif isinstance(obj, LoRALinear) and not _skip_quantized_base(obj):
                 new_child = _bake_single(obj)
                 _assign(parent, attr_name, idx, new_child)
                 obj = new_child

@@ -53,7 +53,9 @@ class LoRALoader:
 
         if bake_lora:
             print("Baking LoRA weights into the base model for faster inference...")
-            LoRASaver.bake_and_strip_lora(transformer)
+            # skip_quantized: keep LoRAs on QuantizedLinear bases live — re-quantizing a merged weight
+            # diverges from the base's original codes and compounds to a badly wrong image.
+            LoRASaver.bake_and_strip_lora(transformer, skip_quantized=True)
             mx.eval(transformer.parameters())
             print("✅ LoRA weights baked successfully")
 
