@@ -232,6 +232,8 @@ class QwenImageEdit(nn.Module):
         image_path: Path | str | None,
         scheduler: str,
     ) -> tuple[Config, int, int, int, int]:
+        if not image_paths:
+            raise ValueError("QwenImageEdit.generate_image requires at least one reference image in image_paths.")
         reference_image = ImageUtil.load_image(image_paths[0]).convert("RGB")
         image_size = reference_image.size
 

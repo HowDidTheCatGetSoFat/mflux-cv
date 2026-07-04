@@ -213,7 +213,7 @@ image.save("prompt_file.png")
 
 ## LoRA basics
 
-By default, LoRA and LoKr weights are **baked** into the base model after load (one-time merge) so inference uses a single matmul per layer. With `--quantize`, adapters are merged into dequantized weights and the result is re-quantized (same as baking into a dense model, then quantizing that layer). Use `--no-bake-lora` to keep runtime adapter layers (for example if you change scales programmatically without reloading).
+By default, LoRA and LoKr weights are **baked** into the base model after load (one-time merge) so inference uses a single matmul per layer. With `--quantize`, baking merges the adapter into dequantized weights and re-quantizes the result (same as baking into a dense model, then quantizing that layer). Use `--no-bake-lora` to keep runtime adapter layers (for example if you change scales programmatically without reloading). `--no-bake-lora` is honored with `--quantize` too: the adapter then runs as a live layer on top of the quantized base, so runtime scale changes still work, you just do not get the folded single-matmul speedup.
 
 ```sh
 mflux-generate-z-image-turbo \
