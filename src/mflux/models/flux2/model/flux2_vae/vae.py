@@ -45,6 +45,12 @@ class Flux2VAE(nn.Module):
     def decode_packed_latents(self, packed_latents: mx.array, tiling_config: TilingConfig | None = None) -> mx.array:
         if packed_latents.ndim == 5:
             packed_latents = packed_latents[:, :, 0, :, :]
+        # Latents already fully unpacked (channel count != the patchified bn dim) come from a latent
+        # creator that denorms + unpatchifies itself — e.g. Ideogram 4, which shares this VAE but calls
+        # vae.decode() directly. The bn-denorm + unpatchify below is only for the flux2 packed form, so
+        # decode such latents as-is instead of crashing on the shape mismatch.
+        if packed_latents.shape[1] != self.bn.running_mean.shape[0]:
+            return self.decode(packed_latents)
         bn_mean = self.bn.running_mean.reshape(1, -1, 1, 1)
         bn_std = mx.sqrt(self.bn.running_var.reshape(1, -1, 1, 1) + self.bn.eps)
         latents = packed_latents * bn_std + bn_mean
