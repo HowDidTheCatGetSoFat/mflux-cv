@@ -96,8 +96,10 @@ class TrainingLoopSpec:
     # regularization; improves flexibility / prompt robustness). 0.0 = off.
     caption_dropout_rate: float = 0.0
     # EMA of the trained (LoRA) weights: keep a shadow copy updated as ema = decay*ema + (1-decay)*w
-    # after each optimizer step, and save/preview from it for smoother, more stable results. None/0 =
-    # off. Typical: 0.99-0.9999. The live weights keep training; EMA is only swapped in at save time.
+    # after each optimizer step. None/0 = off. Typical: 0.99-0.9999. The live weights keep training and
+    # are what the checkpoint's primary "<n>_adapter.safetensors" holds (so a resume continues the real
+    # trajectory); the smoother EMA is written alongside as "<n>_adapter_ema.safetensors" — use that one
+    # as the deliverable. On resume the EMA shadow re-warms from the live weights.
     ema_decay: float | None = None
     # Weight applied to the loss of regularization images (is_reg, from a "reg/" subfolder). < 1.0
     # softens their pull; 1.0 = same weight as subject images. Only matters when reg images exist.

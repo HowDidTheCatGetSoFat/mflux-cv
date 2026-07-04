@@ -8,6 +8,8 @@ import zipfile
 from pathlib import Path
 from typing import Protocol
 
+import mlx.core as mx
+
 from mflux.models.common.training.dataset.iterator import Iterator
 from mflux.models.common.training.optimization.optimizer import Optimizer
 from mflux.models.common.training.state.training_spec import (
@@ -44,7 +46,12 @@ class TrainingState:
         self.optimizer = optimizer
         self.statistics = statistics
 
-    def save(self, adapter: TrainingAdapterForCheckpointing, training_spec: TrainingSpec) -> None:
+    def save(
+        self,
+        adapter: TrainingAdapterForCheckpointing,
+        training_spec: TrainingSpec,
+        ema_params=None,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             optimizer_path = Path(temp_dir) / f"{self.iterator.num_iterations:07d}_{TRAINING_FILE_NAME_OPTIMIZER}.safetensors"  # fmt: off
             lora_path = Path(temp_dir) / f"{self.iterator.num_iterations:07d}_{TRAINING_FILE_NAME_LORA_ADAPTER}.safetensors"  # fmt: off
@@ -56,12 +63,28 @@ class TrainingState:
             paths = [optimizer_path, lora_path, iterator_path, loss_path, config_path, checkpoint_path, manifest_path]
 
             self.optimizer.save(optimizer_path)
+            # The model holds the LIVE training weights, so the primary adapter is the resumable state
+            # (resume loads it and continues the live trajectory). When EMA is on, also write the EMA
+            # weights as a separate "<n>_adapter_ema.safetensors" — the smoother deliverable — by
+            # swapping them into the model just for that save and restoring the live weights after.
             adapter.save_lora_adapter(path=lora_path, training_spec=training_spec)
+            ema_lora_path = None
+            if ema_params is not None:
+                ema_lora_path = Path(temp_dir) / f"{self.iterator.num_iterations:07d}_{TRAINING_FILE_NAME_LORA_ADAPTER}_ema.safetensors"  # fmt: off
+                model = adapter.model()
+                live = model.trainable_parameters()
+                model.update(ema_params)
+                adapter.save_lora_adapter(path=ema_lora_path, training_spec=training_spec)
+                model.update(live)
+                mx.eval(model.trainable_parameters())
+                paths.append(ema_lora_path)
             self.iterator.save(iterator_path)
             self.statistics.save(loss_path)
             self._save_train_config(config_path, training_spec)
 
             checkpoint_data = self._create_checkpoint_data(training_spec, self.iterator.start_date_time)
+            if ema_lora_path is not None:
+                checkpoint_data["files"]["lora_adapter_ema"] = ema_lora_path.name
             with open(checkpoint_path, "w") as json_file:
                 json.dump(checkpoint_data, json_file, indent=4)
 

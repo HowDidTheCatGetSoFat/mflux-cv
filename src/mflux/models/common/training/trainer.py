@@ -289,19 +289,11 @@ class TrainingTrainer:
 
     @staticmethod
     def _save_checkpoint(training_state, adapter, training_spec, ema) -> None:
-        # Save the checkpoint. With EMA enabled, swap the EMA weights into the model for the save and
-        # restore the live training weights afterwards so training continues from the live weights.
-        if ema is None:
-            training_state.save(adapter, training_spec)
-            return
-        model = adapter.model()
-        live = model.trainable_parameters()
-        model.update(ema)
-        try:
-            training_state.save(adapter, training_spec)
-        finally:
-            model.update(live)
-            mx.eval(model.trainable_parameters())
+        # The model holds the live weights; the checkpoint's primary adapter is that live state so a
+        # resume continues the real trajectory (not the smoothed EMA). When EMA is on, it is written
+        # alongside as "<n>_adapter_ema.safetensors" — the smoother deliverable. On resume the EMA
+        # shadow re-warms from the live weights.
+        training_state.save(adapter, training_spec, ema_params=ema)
 
     @staticmethod
     def _unfreeze_lora_layers(module: nn.Module) -> None:
