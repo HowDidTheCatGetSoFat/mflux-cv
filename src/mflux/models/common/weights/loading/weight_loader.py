@@ -42,10 +42,13 @@ class WeightLoader:
     def load(
         weight_definition: "WeightDefinitionType",
         model_path: str | None = None,
+        download_patterns: list[str] | None = None,
     ) -> LoadedWeights:
+        # download_patterns lets a caller supply variant-aware HF allow_patterns (e.g. Krea 2 Turbo
+        # vs Raw need different transformer layouts); otherwise fall back to the definition's default.
         root_path = PathResolution.resolve(
             path=model_path,
-            patterns=weight_definition.get_download_patterns(),
+            patterns=download_patterns if download_patterns is not None else weight_definition.get_download_patterns(),
         )
 
         # 2. Load each component (with caching for shared sources)

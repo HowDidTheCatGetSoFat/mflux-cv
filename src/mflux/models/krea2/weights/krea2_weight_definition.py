@@ -108,18 +108,22 @@ class Krea2WeightDefinition:
         ]
 
     @staticmethod
-    def get_download_patterns() -> List[str]:
-        # Fetch the native root transformer (turbo.safetensors) + VAE + single-file
-        # text encoder + tokenizer. Deliberately skip the diffusers-format
-        # transformer/ subdir (different keys, and ~26 GB of redundant shards).
-        return [
-            "turbo.safetensors",
+    def get_download_patterns(model_name: str | None = None) -> List[str]:
+        # VAE + single-file text encoder + tokenizer are shared by both variants.
+        shared = [
             "vae/*.safetensors",
             "vae/*.json",
             "text_encoder/*.safetensors",
             "text_encoder/*.json",
             "tokenizer/**",
         ]
+        # Krea 2 Raw (krea/Krea-2-Raw) ships ONLY the diffusers-format transformer/ shard dir — there is
+        # no single-file turbo.safetensors — so it must be fetched or the transformer never downloads.
+        if model_name is not None and "raw" in model_name.lower():
+            return ["transformer/*.safetensors", "transformer/*.json", "model_index.json", *shared]
+        # Turbo: native single-file transformer at the repo root; deliberately skip the redundant
+        # diffusers transformer/ shards (~26 GB) that the Turbo repo also carries.
+        return ["turbo.safetensors", *shared]
 
     @staticmethod
     def quantization_predicate(path: str, module) -> bool:

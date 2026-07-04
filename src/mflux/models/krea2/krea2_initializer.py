@@ -27,7 +27,7 @@ class Krea2Initializer:
     ) -> None:
         path = model_path if model_path else model_config.model_name
         Krea2Initializer._init_config(model, model_config)
-        weights = Krea2Initializer._load_weights(path)
+        weights = Krea2Initializer._load_weights(path, model_config)
         Krea2Initializer._init_tokenizers(model, path)
         Krea2Initializer._init_models(model, model_config)
         Krea2Initializer._apply_weights(model, weights, quantize)
@@ -53,8 +53,13 @@ class Krea2Initializer:
         model.lora_scales = None
 
     @staticmethod
-    def _load_weights(model_path: str) -> LoadedWeights:
-        return WeightLoader.load(weight_definition=Krea2WeightDefinition, model_path=model_path)
+    def _load_weights(model_path: str, model_config: ModelConfig) -> LoadedWeights:
+        # Variant-aware HF download: Raw needs the diffusers transformer/ dir, Turbo the single file.
+        return WeightLoader.load(
+            weight_definition=Krea2WeightDefinition,
+            model_path=model_path,
+            download_patterns=Krea2WeightDefinition.get_download_patterns(model_config.model_name),
+        )
 
     @staticmethod
     def _init_models(model, model_config: ModelConfig) -> None:
