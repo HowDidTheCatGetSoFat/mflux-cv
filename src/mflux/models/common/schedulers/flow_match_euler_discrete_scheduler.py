@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from mflux.models.common.config.config import Config
 
 from mflux.models.common.schedulers.base_scheduler import BaseScheduler
+from mflux.models.common.schedulers.schedule_sigmas import base_shaped_sigmas
 
 
 @partial(mx.compile, shapeless=True)
@@ -42,15 +43,15 @@ class FlowMatchEulerDiscreteScheduler(BaseScheduler):
     def set_mu(self, mu: float) -> None:
         if self.config.shift is not None:
             mu = float(self.config.shift)
-            
+
         num_steps = self.config.num_inference_steps
-        
+
         custom_sigmas = FlowMatchEulerDiscreteScheduler._generate_base_sigmas(num_steps, self.config.sigma_schedule)
         if custom_sigmas is not None:
             sigmas = mx.array(custom_sigmas, dtype=mx.float32)
         else:
             sigmas = mx.linspace(1.0, 1.0 / num_steps, num_steps, dtype=mx.float32)
-            
+
         sigmas = FlowMatchEulerDiscreteScheduler._time_shift_exponential_array(mu, 1.0, sigmas)
         self._timesteps = sigmas * self.num_train_timesteps
         sigmas = mx.concatenate([sigmas, mx.zeros((1,), dtype=sigmas.dtype)], axis=0)
@@ -69,27 +70,11 @@ class FlowMatchEulerDiscreteScheduler(BaseScheduler):
         return float(m * image_seq_len + b)
 
     @staticmethod
-    def _generate_base_sigmas(num_steps: int, schedule: str = "linear") -> list[float]:
-        sigma_max = 1.0
-        sigma_min = 1.0 / 1000  # 1/num_train_timesteps
-        if schedule == "cosine":
-            import numpy as np
-            t = np.linspace(0, 1, num_steps)
-            sigmas = (1.0 + np.cos(t * math.pi)) / 2.0
-            return sigmas.tolist()
-        elif schedule == "karras":
-            rho = 7.0
-            ramp = [i / max(num_steps - 1, 1) for i in range(num_steps)]
-            min_inv_rho = sigma_min ** (1.0 / rho)
-            max_inv_rho = sigma_max ** (1.0 / rho)
-            return [(max_inv_rho + r * (min_inv_rho - max_inv_rho)) ** rho for r in ramp]
-        elif schedule == "exponential":
-            log_max = math.log(sigma_max)
-            log_min = math.log(sigma_min)
-            return [math.exp(log_max + i * (log_min - log_max) / max(num_steps - 1, 1)) for i in range(num_steps)]
-        else:
-            # linear (original behavior)
-            return None  # signal to use original logic
+    def _generate_base_sigmas(num_steps: int, schedule: str = "linear") -> list[float] | None:
+        # Non-linear schedules from the shared helper (sigma_min = 1/num_train_timesteps); None for
+        # linear signals the caller to build its own linear ramp.
+        sigmas = base_shaped_sigmas(num_steps, schedule, sigma_min=1.0 / 1000)
+        return None if sigmas is None else sigmas.tolist()
 
     @staticmethod
     def get_timesteps_and_sigmas(
