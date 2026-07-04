@@ -134,10 +134,12 @@ class Ideogram4(nn.Module):
         # A LoRA is active either loaded from disk (self.lora_paths, possibly baked into the base
         # weights) or injected in-place for training previews (LoRALinear/LoKr layers, lora_paths
         # is None). Detect both so training previews use the same negative routing as inference.
-        has_lora = bool(getattr(self, "lora_paths", None)) or any(
-            isinstance(m, (LoRALinear, FusedLoRALinear, LoKrLinear))
-            for _, m in self.conditional_transformer.named_modules()
-        )
+        has_lora = bool(getattr(self, "lora_paths", None))
+        if not has_lora and hasattr(self.conditional_transformer, "named_modules"):
+            has_lora = any(
+                isinstance(m, (LoRALinear, FusedLoRALinear, LoKrLinear))
+                for _, m in self.conditional_transformer.named_modules()
+            )
         uncond_transformer = self.conditional_transformer if has_lora else self.unconditional_transformer
         predict_unconditional = self._predict_unconditional(uncond_transformer)
         time_steps = config.time_steps
