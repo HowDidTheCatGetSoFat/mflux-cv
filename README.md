@@ -66,6 +66,9 @@ prior `+fxd0h` builds (0.18.1 through 0.18.5); this is the rebrand plus everythi
 - **[filipstrand/mflux#463](https://github.com/filipstrand/mflux/pull/463) by Mike Wallio** — fix ERNIE
   and Krea 2 img2img with tiled VAE latents: the 5D tiled-VAE pack path took the wrong slice; keep the
   singleton temporal axis so tiled-decode img2img reconstructs correctly.
+- **[filipstrand/mflux#445](https://github.com/filipstrand/mflux/pull/445) by plz12345** — load
+  Ideogram 4 from mlx-forge converted checkpoints (bf16 / int8) by HF repo id, skipping the fp8-only
+  validation; plus a once-built boolean attention keep-mask. Merged with our gradient-checkpointing.
 
 ---
 
