@@ -24,6 +24,7 @@ class Krea2Initializer:
         model_path: str | None = None,
         lora_paths: list[str] | None = None,
         lora_scales: list[float] | None = None,
+        uncensor: float = 1.0,
     ) -> None:
         path = model_path if model_path else model_config.model_name
         Krea2Initializer._init_config(model, model_config)
@@ -32,9 +33,29 @@ class Krea2Initializer:
         Krea2Initializer._init_models(model, model_config)
         Krea2Initializer._apply_weights(model, weights, quantize)
         Krea2Initializer._apply_lora(model, lora_paths, lora_scales)
+        Krea2Initializer._apply_uncensor(model, uncensor)
         del weights
         mx.eval(model)
         mx.clear_cache()
+
+    @staticmethod
+    def _apply_uncensor(model, uncensor: float) -> None:
+        # Krea 2's content refusal is carried by the text-fusion projector's weighting of the
+        # tapped Qwen3-VL layers 9/10/11 (indices 8, 9, 10; default weights ~ -0.51/-0.89/-0.61).
+        # Scaling those (the same direction the community "FilterBypass" LoRA and skc3vo amplify)
+        # neutralises the refusal without touching anything else. uncensor=1.0 leaves the model
+        # untouched; ~6.0 flips refused explicit prompts to coherent output (empirically validated).
+        if uncensor == 1.0:
+            return
+        proj = getattr(getattr(model.transformer, "txtfusion", None), "projector", None)
+        if proj is None or tuple(proj.weight.shape) != (1, 12):
+            return  # projector missing or reshaped; skip rather than corrupt conditioning
+        w = proj.weight
+        new = mx.array(w)
+        for i in (8, 9, 10):
+            new[0, i] = w[0, i] * uncensor
+        proj.weight = new
+        mx.eval(proj.weight)
 
     @staticmethod
     def _init_tokenizers(model, model_path: str) -> None:

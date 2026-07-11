@@ -22,6 +22,14 @@ def main():
     parser.add_image_generator_arguments(supports_metadata_config=True, supports_dimension_scale_factor=True)
     parser.add_image_to_image_arguments(required=False)
     parser.add_output_arguments()
+    parser.add_argument(
+        "--krea2-uncensor",
+        type=float,
+        default=1.0,
+        help="Scale the text-fusion projector's refusal layers (tapped Qwen3-VL 9/10/11). "
+        "1.0 = default (Krea 2's content refusal active); ~6.0 neutralises it so explicit "
+        "prompts render instead of being dodged (clothed / stylized). Applied once at load.",
+    )
     args = parser.parse_args()
 
     # 1. Load the model
@@ -31,6 +39,7 @@ def main():
         model_path=args.model_path,
         lora_paths=args.lora_paths,
         lora_scales=args.lora_scales,
+        uncensor=args.krea2_uncensor,
     )
 
     # 2. Register callbacks (stepwise image output, memory stats, battery saver)
