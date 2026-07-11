@@ -1,0 +1,44 @@
+# PR auto-labels by changed path (actions/labeler v5).
+krea2:
+  - changed-files:
+      - any-glob-to-any-file: "src/mflux/models/krea2/**"
+ideogram4:
+  - changed-files:
+      - any-glob-to-any-file: "src/mflux/models/ideogram4/**"
+z-image:
+  - changed-files:
+      - any-glob-to-any-file: "src/mflux/models/z_image/**"
+flux2:
+  - changed-files:
+      - any-glob-to-any-file: "src/mflux/models/flux2/**"
+flux:
+  - changed-files:
+      - any-glob-to-any-file: "src/mflux/models/flux/**"
+qwen:
+  - changed-files:
+      - any-glob-to-any-file: "src/mflux/models/qwen/**"
+ernie:
+  - changed-files:
+      - any-glob-to-any-file: "src/mflux/models/ernie_image/**"
+fibo:
+  - changed-files:
+      - any-glob-to-any-file: "src/mflux/models/fibo*/**"
+lora:
+  - changed-files:
+      - any-glob-to-any-file: "src/mflux/models/common/lora/**"
+training:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/mflux/**/training_adapter/**"
+          - "src/mflux/models/common/training/**"
+tests:
+  - changed-files:
+      - any-glob-to-any-file: "tests/**"
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "**/README*"
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ".github/**"

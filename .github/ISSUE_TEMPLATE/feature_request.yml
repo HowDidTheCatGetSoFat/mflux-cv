@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest a feature, model, or an upstream PR worth pulling in.
+title: "[feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Requests for new features, new models, or upstream PRs to pull into the community build are welcome.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of request
+      options:
+        - New feature
+        - New model
+        - Pull in an upstream PR
+        - Improvement to an existing feature
+    validations:
+      required: true
+  - type: input
+    id: upstream
+    attributes:
+      label: Upstream PR / reference (optional)
+      description: If this is about pulling in a PR, link it (e.g. filipstrand/mflux#459).
+      placeholder: "filipstrand/mflux#459"
+    validations:
+      required: false
+  - type: textarea
+    id: what
+    attributes:
+      label: What and why
+      description: Describe the feature and the use case it enables.
+    validations:
+      required: true

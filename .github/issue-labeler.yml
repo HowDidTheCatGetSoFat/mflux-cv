@@ -1,0 +1,23 @@
+# Issue auto-labels by keyword in title/body (github/issue-labeler).
+krea2:
+  - '(?i)\bkrea\s?-?2\b'
+ideogram4:
+  - '(?i)ideogram'
+z-image:
+  - '(?i)z\s?-?image'
+flux2:
+  - '(?i)flux\.?\s?2|klein'
+flux:
+  - '(?i)\bflux\.?1\b|schnell|\bdev\b'
+qwen:
+  - '(?i)qwen'
+ernie:
+  - '(?i)ernie'
+fibo:
+  - '(?i)\bfibo\b'
+training:
+  - '(?i)\btrain(ing)?\b|\bdora\b|\bqlora\b'
+lora:
+  - '(?i)\blora\b|\blokr\b|lycoris'
+documentation:
+  - '(?i)\bdocs?\b|readme|typo'

@@ -1,0 +1,66 @@
+name: Bug report
+description: Something in mflux-CV is broken or behaves incorrectly.
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve mflux-CV. Please fill in what you can; the more detail, the faster it gets fixed.
+  - type: input
+    id: version
+    attributes:
+      label: mflux-CV version
+      description: Output of `mflux-info` or the installed tag (e.g. 0.18.15-CV).
+      placeholder: "0.18.15-CV"
+    validations:
+      required: true
+  - type: dropdown
+    id: model
+    attributes:
+      label: Model
+      description: Which model does this involve?
+      options:
+        - Krea 2
+        - Ideogram 4
+        - Z-Image
+        - FLUX.2
+        - Qwen
+        - ERNIE
+        - FIBO
+        - Training
+        - Not model-specific / other
+    validations:
+      required: false
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Describe the bug and the exact command or code that triggers it.
+      placeholder: |
+        Command: mflux-generate-krea2 --prompt "..." --krea2-uncensor 6
+        Result: ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: false
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: macOS version, Apple chip (M1/M2/M3/M4/M5), RAM, `mlx` version.
+      placeholder: "macOS 15.5, M5 Max, 128 GB, mlx 0.31.0"
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / traceback
+      description: Paste the full error. This is rendered as code, no backticks needed.
+      render: shell
+    validations:
+      required: false
