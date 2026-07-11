@@ -17,7 +17,20 @@ name = "mflux"
 version = "0.18.17+cv"
 description = "MLX native implementations of state-of-the-art generative image models."
 readme = "README.md"
-keywords = ["flux", "ai", "ml", "transformers", "mlx", "huggingface", "apple-silicon", "diffusers", "qwen", "qwen-image", "seedvr2", "z-image"]
+keywords = [
+    # models
+    "flux", "flux2", "krea", "krea-2", "ideogram", "ideogram-4", "z-image", "qwen", "qwen-image",
+    "ernie", "fibo", "seedvr2",
+    # platform
+    "mlx", "apple-silicon", "metal", "macos", "on-device", "local", "m1", "m2", "m3", "m4",
+    # task
+    "image-generation", "text-to-image", "diffusion", "stable-diffusion", "generative-ai",
+    "inpainting", "controlnet", "img2img",
+    # tuning
+    "lora", "lokr", "dora", "fine-tuning", "training", "quantization",
+    # ecosystem
+    "ai", "ml", "transformers", "diffusers", "huggingface",
+]
 authors = [{ name = "Filip Strand", email = "strand.filip@gmail.com" }]
 maintainers = [{ name = "Filip Strand", email = "strand.filip@gmail.com" }]
 license = { file = "LICENSE" }
