@@ -20,6 +20,11 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.18-CV
+- Pulled in two new upstream models (credited under [Community PRs pulled in](#community-prs-pulled-in)):
+  Boogu-Image-0.1-Turbo (#446, `mflux-generate-boogu`) and Qwen-Image-Layered (#302,
+  `mflux-generate-qwen-layered`) for decomposing an image into RGBA layers.
+
 ### 0.18.17-CV
 - Pulled in Ideogram 4 mlx-forge checkpoint loading (#445) and mixed-quant FLUX.2 inference (#436),
   both credited under [Community PRs pulled in](#community-prs-pulled-in).
