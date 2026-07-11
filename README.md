@@ -55,7 +55,9 @@ prior `+fxd0h` builds (0.18.1 through 0.18.5); this is the rebrand plus everythi
 - **Krea 2**: LoRA training, Raw variant, and diffusers-format loading.
 
 ### Community PRs pulled in
-None yet. Candidates under review, with credit to their authors, are tracked in the issues.
+- **[filipstrand/mflux#459](https://github.com/filipstrand/mflux/pull/459) by Sahil Tanveer** — fix LoRA
+  loading for fused qkv layers: keep the shared rank/down projection whole and slice only the up
+  projection, so kohya/BFL FLUX LoRAs with a rank divisible by 3/4 load correctly.
 
 ---
 
