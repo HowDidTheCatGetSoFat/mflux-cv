@@ -77,6 +77,8 @@ prior `+fxd0h` builds (0.18.1 through 0.18.5); this is the rebrand plus everythi
   inference for FLUX.2: quantize the transformer and text encoder to different levels, or load each from
   its own path (`--model-transformer` / `--model-text-encoder`); the VAE stays bf16. Merged alongside our
   LoKr flux2 changes.
+- **[filipstrand/mflux#446](https://github.com/filipstrand/mflux/pull/446) by plz12345** — new model:
+  Boogu-Image-0.1-Turbo (`mflux-generate-boogu`). Applied cleanly.
 
 ---
 
