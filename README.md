@@ -69,6 +69,10 @@ prior `+fxd0h` builds (0.18.1 through 0.18.5); this is the rebrand plus everythi
 - **[filipstrand/mflux#445](https://github.com/filipstrand/mflux/pull/445) by plz12345** — load
   Ideogram 4 from mlx-forge converted checkpoints (bf16 / int8) by HF repo id, skipping the fp8-only
   validation; plus a once-built boolean attention keep-mask. Merged with our gradient-checkpointing.
+- **[filipstrand/mflux#436](https://github.com/filipstrand/mflux/pull/436) by Ian Scrivener** — mixed-quant
+  inference for FLUX.2: quantize the transformer and text encoder to different levels, or load each from
+  its own path (`--model-transformer` / `--model-text-encoder`); the VAE stays bf16. Merged alongside our
+  LoKr flux2 changes.
 
 ---
 
