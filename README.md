@@ -58,6 +58,9 @@ prior `+fxd0h` builds (0.18.1 through 0.18.5); this is the rebrand plus everythi
 - **[filipstrand/mflux#459](https://github.com/filipstrand/mflux/pull/459) by Sahil Tanveer** — fix LoRA
   loading for fused qkv layers: keep the shared rank/down projection whole and slice only the up
   projection, so kohya/BFL FLUX LoRAs with a rank divisible by 3/4 load correctly.
+- **[filipstrand/mflux#463](https://github.com/filipstrand/mflux/pull/463) by Mike Wallio** — fix ERNIE
+  and Krea 2 img2img with tiled VAE latents: the 5D tiled-VAE pack path took the wrong slice; keep the
+  singleton temporal axis so tiled-decode img2img reconstructs correctly.
 
 ---
 
