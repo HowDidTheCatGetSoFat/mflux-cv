@@ -20,6 +20,10 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.17-CV
+- Pulled in Ideogram 4 mlx-forge checkpoint loading (#445) and mixed-quant FLUX.2 inference (#436),
+  both credited under [Community PRs pulled in](#community-prs-pulled-in).
+
 ### 0.18.16-CV
 - Pulled in two upstream bug fixes (credited under [Community PRs pulled in](#community-prs-pulled-in)):
   fused-qkv LoRA loading (#459) and ERNIE / Krea 2 tiled img2img (#463).
