@@ -22,10 +22,11 @@ keywords = [
     "flux", "flux2", "krea", "krea-2", "ideogram", "ideogram-4", "z-image", "qwen", "qwen-image",
     "ernie", "fibo", "seedvr2",
     # platform
-    "mlx", "apple-silicon", "metal", "macos", "on-device", "local", "m1", "m2", "m3", "m4",
+    "mlx", "apple-silicon", "metal", "macos", "mac", "macbook", "macbook-pro", "on-device", "local",
+    "m1", "m2", "m3", "m4", "m5", "pro", "max",
     # task
-    "image-generation", "text-to-image", "diffusion", "stable-diffusion", "generative-ai",
-    "inpainting", "controlnet", "img2img",
+    "image-generation", "text-to-image", "t2i", "image-to-image", "img2img", "i2i",
+    "diffusion", "stable-diffusion", "generative-ai", "inpainting", "controlnet",
     # tuning
     "lora", "lokr", "dora", "fine-tuning", "training", "quantization",
     # ecosystem
