@@ -1,3 +1,66 @@
+# mflux-CV
+
+A drop-in community build of [mflux](https://github.com/filipstrand/mflux) by Filip Strand (MIT). It
+stays current with upstream `main` and adds a curated set of fixes, training features, and useful
+community PRs, with prebuilt wheels on GitHub Releases so improvements stay available to everyone even
+when upstream maintenance is slow. The Python package is still `mflux` and every CLI keeps its name,
+so this is a direct replacement in ComfyUI, image-studio, or any existing setup.
+
+**Install**
+
+```bash
+pip install git+https://github.com/HowDidTheCatGetSoFat/mflux-cv.git@v.0.18.15-CV
+```
+
+or download a wheel from [Releases](https://github.com/HowDidTheCatGetSoFat/mflux-cv/releases).
+
+**Relationship to upstream:** kept rebased on `filipstrand/mflux` so changes merge back cleanly. Every
+upstream commit is included and nothing is removed. Credit for the base project and every pulled PR
+goes to their authors.
+
+## Changelog (on top of upstream 0.18.0)
+
+### 0.18.15-CV
+First release under the `mflux-CV` name, in the community home at
+[HowDidTheCatGetSoFat/mflux-cv](https://github.com/HowDidTheCatGetSoFat/mflux-cv). Same codebase as the
+prior `+fxd0h` builds (0.18.1 through 0.18.5); this is the rebrand plus everything listed below.
+
+### 0.18.5
+- **Krea 2 `--krea2-uncensor <k>`**: scales the text-fusion projector's refusal layers (tapped Qwen3-VL
+  9/10/11) so explicit prompts render instead of being dodged. `k=1` is off, `~6` neutralises the filter.
+
+### 0.18.4
+- **LoRA on quantized bases**: keep the adapter live at inference instead of baking it into the quantized
+  weights (baking re-quantized and badly diverged the output on the `--quantize` default).
+- **LoKr**: load LyCORIS LoKr adapters for Krea 2, Qwen, and Ideogram 4.
+- **Ideogram 4**: fix the stepwise-preview VAE decode crash on already-unpacked latents; guard the
+  injected-LoRA scan against transformers without `named_modules`.
+- **Krea 2 Raw**: download the diffusers transformer from HuggingFace.
+- **z-image**: shared `--saveinfo` filename builder; fix numeric-tag collisions.
+- **qwen-edit**: clearer error on empty `image_paths`; regenerated golden references.
+
+### 0.18.3
+- Review fixes: fp8-aware fused DoRA, training guards (LR, grad-accum reset on skip, qwen VAE flag),
+  route the CFG negative through an injected LoRA in training previews, surface LoRA bake failures on
+  save, EMA resume from live weights.
+
+### 0.18.2
+- **Krea 2 sigma schedule**: use the official dynamic exponential shift instead of a linear 1.15.
+
+### 0.18.1
+- **Training suite**: DoRA (weight-decomposed LoRA) for Krea 2, Ideogram 4, z-image, flux, flux2;
+  gradient accumulation; EMA of trained weights; caption dropout; masked loss; regularization /
+  prior-preservation images; continue training from an existing LoRA; non-finite-step guard; utf-8-safe
+  captions; free training-loss plot.
+- **Krea 2**: LoRA training, Raw variant, and diffusers-format loading.
+
+### Community PRs pulled in
+None yet. Candidates under review, with credit to their authors, are tracked in the issues.
+
+---
+
+> The rest of this file is the upstream mflux documentation.
+
 ![image](src/mflux/assets/logo.jpg)
 
 [![MFLUX](https://img.shields.io/pypi/v/mflux?label=MFLUX&logo=pypi&logoColor=white)](https://pypi.org/project/mflux/)
