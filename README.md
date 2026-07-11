@@ -79,6 +79,9 @@ prior `+fxd0h` builds (0.18.1 through 0.18.5); this is the rebrand plus everythi
   LoKr flux2 changes.
 - **[filipstrand/mflux#446](https://github.com/filipstrand/mflux/pull/446) by plz12345** — new model:
   Boogu-Image-0.1-Turbo (`mflux-generate-boogu`). Applied cleanly.
+- **[filipstrand/mflux#302](https://github.com/filipstrand/mflux/pull/302) by ZimengXiong** — new model:
+  Qwen-Image-Layered (`mflux-generate-qwen-layered`) for decomposing an image into RGBA layers, with a
+  low-memory chunked save path. We kept our README; the PR's stale old-structure README changes were dropped.
 
 ---
 
