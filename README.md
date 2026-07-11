@@ -20,6 +20,11 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.16-CV
+- Pulled in two upstream bug fixes (credited under [Community PRs pulled in](#community-prs-pulled-in)):
+  fused-qkv LoRA loading (#459) and ERNIE / Krea 2 tiled img2img (#463).
+- Repo automation: CodeQL security scanning, structured issue forms, and PR / issue auto-labeling.
+
 ### 0.18.15-CV
 First release under the `mflux-CV` name, in the community home at
 [HowDidTheCatGetSoFat/mflux-cv](https://github.com/HowDidTheCatGetSoFat/mflux-cv). Same codebase as the
