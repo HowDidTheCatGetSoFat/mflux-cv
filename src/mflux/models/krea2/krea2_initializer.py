@@ -85,13 +85,16 @@ class Krea2Initializer:
         first_b = control.get("first.bias")
         if first_w is None or first_b is None:
             raise ValueError(f"Control checkpoint {controlnet_path} is missing 'first.weight'/'first.bias'.")
-        out_features, in_features = first_w.shape
-        widened = nn.Linear(in_features, out_features, bias=True)
-        widened.weight = first_w.astype(transformer.first.weight.dtype)
-        widened.bias = first_b.astype(transformer.first.weight.dtype)
-        transformer.first = widened
 
-        # 2. Merge each attention/MLP delta (B @ A, scale = strength) into the base weight.
+        # Validate every tensor shape up front so a malformed checkpoint fails cleanly here instead of
+        # installing a bad projection or half-updating the blocks and only breaking during inference.
+        expected_out = transformer.first.weight.shape[0]
+        expected_in = 2 * transformer.channels * transformer.patch**2
+        if tuple(first_w.shape) != (expected_out, expected_in):
+            raise ValueError(f"Control 'first.weight' is {tuple(first_w.shape)}, expected {(expected_out, expected_in)}.")
+        if tuple(first_b.shape) != (expected_out,):
+            raise ValueError(f"Control 'first.bias' is {tuple(first_b.shape)}, expected {(expected_out,)}.")
+        deltas: dict[tuple[int, str], mx.array] = {}
         for i, block in enumerate(transformer.blocks):
             for target in Krea2Initializer._CONTROL_LORA_TARGETS:
                 a = control.get(f"blocks.{i}.{target}.A")
@@ -99,9 +102,22 @@ class Krea2Initializer:
                 if a is None or b is None:
                     continue
                 sub, attr = target.split(".")  # e.g. "attn", "wq"
-                layer = getattr(getattr(block, sub), attr)
-                delta = (b @ a).astype(layer.weight.dtype)
-                layer.weight = layer.weight + controlnet_strength * delta
+                weight_shape = tuple(getattr(getattr(block, sub), attr).weight.shape)
+                if a.shape[0] != b.shape[1] or (b.shape[0], a.shape[1]) != weight_shape:
+                    raise ValueError(f"Control delta blocks.{i}.{target} (B{tuple(b.shape)} @ A{tuple(a.shape)}) does not match weight {weight_shape}.")  # noqa: E501
+                deltas[(i, target)] = b @ a
+
+        # 1. Replace the input projection with the widened (2*c*p*p -> features) version.
+        widened = nn.Linear(expected_in, expected_out, bias=True)
+        widened.weight = first_w.astype(transformer.first.weight.dtype)
+        widened.bias = first_b.astype(transformer.first.weight.dtype)
+        transformer.first = widened
+
+        # 2. Merge each attention/MLP delta (B @ A, scale = strength) into the base weight.
+        for (i, target), delta in deltas.items():
+            sub, attr = target.split(".")
+            layer = getattr(getattr(transformer.blocks[i], sub), attr)
+            layer.weight = layer.weight + controlnet_strength * delta.astype(layer.weight.dtype)
         mx.eval(transformer)
 
     @staticmethod

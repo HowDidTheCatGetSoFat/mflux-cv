@@ -73,6 +73,22 @@ def test_apply_control_checkpoint_merges_first_and_deltas(tmp_path):
     assert mx.allclose(t.blocks[0].attn.wq.weight, expected, atol=1e-5)
 
 
+def test_apply_control_checkpoint_rejects_malformed_first(tmp_path):
+    import pytest
+
+    t = Krea2Transformer(**TINY)
+    control = {
+        "first.weight": mx.random.normal((TINY["features"], 999)),  # wrong widened input size
+        "first.bias": mx.zeros((TINY["features"],)),
+    }
+    path = tmp_path / "bad.safetensors"
+    mx.save_safetensors(str(path), control)
+    model = type("M", (), {})()
+    model.transformer = t
+    with pytest.raises(ValueError, match="first.weight"):
+        Krea2Initializer._apply_control_checkpoint(model, str(path), controlnet_strength=1.0)
+
+
 def test_apply_control_checkpoint_strength_scales_delta(tmp_path):
     t = Krea2Transformer(**TINY)
     features = TINY["features"]
