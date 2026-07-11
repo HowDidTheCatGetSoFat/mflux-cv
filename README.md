@@ -20,6 +20,14 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.19-CV
+- New: **Krea 2 depth ControlNet** (`mflux-generate-krea2-controlnet`). Runs the community
+  [Krea-2-controlnet](https://github.com/Tanmaypatil123/Krea-2-controlnet) depth checkpoint natively in
+  MLX: the input projection is widened to take a depth latent concatenated on the channel axis, and the
+  attention/MLP deltas are merged into the base weights. Depth is taken from a supplied map
+  (`--depth-image-path`) or estimated with the native Depth Pro. See the Krea 2 depth ControlNet section
+  below.
+
 ### 0.18.18-CV
 - Pulled in two new upstream models (credited under [Community PRs pulled in](#community-prs-pulled-in)):
   Boogu-Image-0.1-Turbo (#446, `mflux-generate-boogu`) and Qwen-Image-Layered (#302,
@@ -87,6 +95,29 @@ prior `+fxd0h` builds (0.18.1 through 0.18.5); this is the rebrand plus everythi
 - **[filipstrand/mflux#302](https://github.com/filipstrand/mflux/pull/302) by ZimengXiong** — new model:
   Qwen-Image-Layered (`mflux-generate-qwen-layered`) for decomposing an image into RGBA layers, with a
   low-memory chunked save path. We kept our README; the PR's stale old-structure README changes were dropped.
+
+### Krea 2 depth ControlNet
+
+Steer a Krea 2 generation with the depth of a reference image, running natively in MLX. Uses the
+community [Krea-2-controlnet](https://github.com/Tanmaypatil123/Krea-2-controlnet) depth checkpoint by
+Tanmay Patil (base weights: `krea/Krea-2-Raw` / `krea/Krea-2-Turbo`).
+
+```bash
+mflux-generate-krea2-controlnet \
+  --model krea2 \
+  --controlnet-path /path/to/depth-control-lora.safetensors \
+  --image-path reference.png \
+  --prompt "a glowing crystal orb on a wooden table, studio photo" \
+  --steps 8 --seed 42 --height 1024 --width 1024 \
+  --output out.png
+```
+
+- `--image-path` estimates depth with the native Depth Pro (its metric near = dark map is inverted to
+  the checkpoint's near = white convention). For the closest match to how the checkpoint was trained,
+  pass a Depth-Anything-V2 map directly with `--depth-image-path` (used as-is, near = white).
+- `--controlnet-strength` scales how strongly the control deltas are merged (default `1.0`).
+- `--krea2-uncensor` is supported here too.
+- Quantization is not supported yet for this variant (the base loads in full precision).
 
 ---
 

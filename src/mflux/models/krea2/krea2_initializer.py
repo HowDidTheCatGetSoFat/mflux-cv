@@ -1,4 +1,5 @@
 import mlx.core as mx
+from mlx import nn
 
 import mflux.models.krea2.model.krea2_scheduler  # noqa: F401 — register er_sde/euler schedulers
 from mflux.callbacks.callback_registry import CallbackRegistry
@@ -37,6 +38,71 @@ class Krea2Initializer:
         del weights
         mx.eval(model)
         mx.clear_cache()
+
+    # Order of the widened input projection's channel targets: the reference DiT concatenates the
+    # attention/MLP LoRA over blocks 0..27, each with these five attention + three MLP sub-layers.
+    _CONTROL_LORA_TARGETS = ("attn.wq", "attn.wk", "attn.wv", "attn.wo", "attn.gate", "mlp.gate", "mlp.up", "mlp.down")
+
+    @staticmethod
+    def init_depth(
+        model,
+        model_config: ModelConfig,
+        controlnet_path: str,
+        quantize: int | None,
+        controlnet_strength: float = 1.0,
+        model_path: str | None = None,
+        lora_paths: list[str] | None = None,
+        lora_scales: list[float] | None = None,
+        uncensor: float = 1.0,
+    ) -> None:
+        # The depth checkpoint stores a full 128-wide `first` weight plus attention/MLP deltas as raw
+        # A/B matrices (not diffusers/kohya LoRA naming), so it is merged directly into full-precision
+        # weights here rather than through the standard LoRA loader. Quantizing would have to fuse the
+        # deltas into packed weights first; unsupported for now, so require an unquantized base.
+        if quantize is not None:
+            raise ValueError("Krea 2 depth-ControlNet does not support quantization yet; run without --quantize.")
+        path = model_path if model_path else model_config.model_name
+        Krea2Initializer._init_config(model, model_config)
+        weights = Krea2Initializer._load_weights(path, model_config)
+        Krea2Initializer._init_tokenizers(model, path)
+        Krea2Initializer._init_models(model, model_config)
+        Krea2Initializer._apply_weights(model, weights, quantize=None)
+        Krea2Initializer._apply_control_checkpoint(model, controlnet_path, controlnet_strength)
+        Krea2Initializer._apply_lora(model, lora_paths, lora_scales)
+        Krea2Initializer._apply_uncensor(model, uncensor)
+        del weights
+        mx.eval(model)
+        mx.clear_cache()
+
+    @staticmethod
+    def _apply_control_checkpoint(model, controlnet_path: str, controlnet_strength: float) -> None:
+        control = mx.load(str(controlnet_path))
+        transformer = model.transformer
+
+        # 1. Replace the input projection with the widened (2*c*p*p -> features) version and load its
+        #    full trained weight/bias from the checkpoint.
+        first_w = control.get("first.weight")
+        first_b = control.get("first.bias")
+        if first_w is None or first_b is None:
+            raise ValueError(f"Control checkpoint {controlnet_path} is missing 'first.weight'/'first.bias'.")
+        out_features, in_features = first_w.shape
+        widened = nn.Linear(in_features, out_features, bias=True)
+        widened.weight = first_w.astype(transformer.first.weight.dtype)
+        widened.bias = first_b.astype(transformer.first.weight.dtype)
+        transformer.first = widened
+
+        # 2. Merge each attention/MLP delta (B @ A, scale = strength) into the base weight.
+        for i, block in enumerate(transformer.blocks):
+            for target in Krea2Initializer._CONTROL_LORA_TARGETS:
+                a = control.get(f"blocks.{i}.{target}.A")
+                b = control.get(f"blocks.{i}.{target}.B")
+                if a is None or b is None:
+                    continue
+                sub, attr = target.split(".")  # e.g. "attn", "wq"
+                layer = getattr(getattr(block, sub), attr)
+                delta = (b @ a).astype(layer.weight.dtype)
+                layer.weight = layer.weight + controlnet_strength * delta
+        mx.eval(transformer)
 
     @staticmethod
     def _apply_uncensor(model, uncensor: float) -> None:
