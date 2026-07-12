@@ -67,9 +67,12 @@ class Krea2Initializer:
         Krea2Initializer._init_models(model, model_config)
         Krea2Initializer._apply_weights(model, weights, quantize=None)
         Krea2Initializer._apply_control_checkpoint(model, controlnet_path, controlnet_strength)
+        # Quantize before LoRA/uncensor to match init()'s ordering, so LoRA stays a live adapter on
+        # the packed weights rather than being baked in. The control merge stays above: it is a
+        # full-weight replacement/merge that must happen while the weights are still unquantized.
+        Krea2Initializer._quantize_after_control(model, quantize)
         Krea2Initializer._apply_lora(model, lora_paths, lora_scales)
         Krea2Initializer._apply_uncensor(model, uncensor)
-        Krea2Initializer._quantize_after_control(model, quantize)
         del weights
         mx.eval(model)
         mx.clear_cache()
