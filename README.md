@@ -21,6 +21,7 @@ goes to their authors.
 ## Changelog (on top of upstream 0.18.0)
 
 ### 0.18.20-CV
+
 - Krea 2 depth ControlNet now supports quantization (`-q 8` / `-q 4`): the control deltas are baked
   into the base weights before quantization, so the packed model keeps the depth control. Validated
   end-to-end at int8.
