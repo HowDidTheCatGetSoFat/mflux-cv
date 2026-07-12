@@ -59,6 +59,7 @@ def main():
         args=args,
         model=model,
         latent_creator=Krea2LatentCreator,
+        enable_depth_saver=True,
     )
 
     try:

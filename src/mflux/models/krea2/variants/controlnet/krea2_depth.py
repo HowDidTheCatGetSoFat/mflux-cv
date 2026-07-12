@@ -89,7 +89,7 @@ class Krea2Depth(nn.Module):
         latents = Krea2LatentCreator.create_noise(seed, config.height, config.width)
 
         # Encode the depth map into a control latent (static across the denoise loop).
-        control_latent, _ = Krea2DepthUtil.encode_depth_control(
+        control_latent, depth_image = Krea2DepthUtil.encode_depth_control(
             vae=self.vae,
             depth_pro=None if depth_image_path else self._get_depth_pro(),
             width=config.width,
@@ -109,7 +109,7 @@ class Krea2Depth(nn.Module):
 
         stepper = Krea2Sampler.make_stepper(resolved_scheduler, sigmas, seed)
         ctx = self.callbacks.start(seed=seed, prompt=prompt, config=config)
-        ctx.before_loop(latents)
+        ctx.before_loop(latents, depth_image=depth_image)
         predict = self._predict(self.transformer, embeds, neg_embeds, guidance, control_latent)
 
         for t in config.time_steps:

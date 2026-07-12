@@ -20,6 +20,12 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.21-CV
+
+- Krea 2 depth ControlNet: fix the estimated-depth convention (Depth Pro already outputs near = white,
+  like Depth-Anything-V2, so its map is now used un-inverted — an earlier inversion put the background in
+  front). `--save-depth-map` now writes the estimated map (`<output>_depth_map.png`).
+
 ### 0.18.20-CV
 
 - Krea 2 depth ControlNet now supports quantization (`-q 8` / `-q 4`): the control deltas are baked
@@ -118,9 +124,9 @@ mflux-generate-krea2-controlnet \
   --output out.png
 ```
 
-- `--image-path` estimates depth with the native Depth Pro (its metric near = dark map is inverted to
-  the checkpoint's near = white convention). For the closest match to how the checkpoint was trained,
-  pass a Depth-Anything-V2 map directly with `--depth-image-path` (used as-is, near = white).
+- `--image-path` estimates depth with the native Depth Pro (near = white, used as-is, the same
+  convention the checkpoint was trained on). Add `--save-depth-map` to also write the estimated map. For
+  the closest match to the training data, pass a Depth-Anything-V2 map directly with `--depth-image-path`.
 - `--controlnet-strength` scales how strongly the control deltas are merged (default `1.0`).
 - `--krea2-uncensor` is supported here too.
 - `-q 8` / `-q 4` quantize the variant: the control deltas are baked into the base weights before
