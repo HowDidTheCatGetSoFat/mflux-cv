@@ -20,6 +20,11 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.20-CV
+- Krea 2 depth ControlNet now supports quantization (`-q 8` / `-q 4`): the control deltas are baked
+  into the base weights before quantization, so the packed model keeps the depth control. Validated
+  end-to-end at int8.
+
 ### 0.18.19-CV
 - New: **Krea 2 depth ControlNet** (`mflux-generate-krea2-controlnet`). Runs the community
   [Krea-2-controlnet](https://github.com/Tanmaypatil123/Krea-2-controlnet) depth checkpoint natively in
@@ -117,7 +122,8 @@ mflux-generate-krea2-controlnet \
   pass a Depth-Anything-V2 map directly with `--depth-image-path` (used as-is, near = white).
 - `--controlnet-strength` scales how strongly the control deltas are merged (default `1.0`).
 - `--krea2-uncensor` is supported here too.
-- Quantization is not supported yet for this variant (the base loads in full precision).
+- `-q 8` / `-q 4` quantize the variant: the control deltas are baked into the base weights before
+  quantization, so the packed model keeps the depth control.
 
 ---
 

@@ -56,11 +56,10 @@ class Krea2Initializer:
         uncensor: float = 1.0,
     ) -> None:
         # The depth checkpoint stores a full 128-wide `first` weight plus attention/MLP deltas as raw
-        # A/B matrices (not diffusers/kohya LoRA naming), so it is merged directly into full-precision
-        # weights here rather than through the standard LoRA loader. Quantizing would have to fuse the
-        # deltas into packed weights first; unsupported for now, so require an unquantized base.
-        if quantize is not None:
-            raise ValueError("Krea 2 depth-ControlNet does not support quantization yet; run without --quantize.")
+        # A/B matrices (not diffusers/kohya LoRA naming), so it is merged directly into the base weights
+        # rather than through the standard LoRA loader. The base is therefore loaded unquantized; when
+        # quantization is requested the deltas are baked in first and the model is quantized afterwards,
+        # so the packed weights already include the control.
         path = model_path if model_path else model_config.model_name
         Krea2Initializer._init_config(model, model_config)
         weights = Krea2Initializer._load_weights(path, model_config)
@@ -70,9 +69,26 @@ class Krea2Initializer:
         Krea2Initializer._apply_control_checkpoint(model, controlnet_path, controlnet_strength)
         Krea2Initializer._apply_lora(model, lora_paths, lora_scales)
         Krea2Initializer._apply_uncensor(model, uncensor)
+        Krea2Initializer._quantize_after_control(model, quantize)
         del weights
         mx.eval(model)
         mx.clear_cache()
+
+    @staticmethod
+    def _quantize_after_control(model, quantize: int | None) -> None:
+        # Quantize once the control deltas are merged in, mirroring the base path's post-load quantize
+        # (same predicate + group size + skip_quantization components, e.g. the text encoder).
+        if quantize is None:
+            model.bits = None
+            return
+        components = {c.name: c for c in Krea2WeightDefinition.get_components()}
+        WeightApplier._quantize(
+            models={"vae": model.vae, "transformer": model.transformer, "text_encoder": model.text_encoder},
+            bits=quantize,
+            components=components,
+            weight_definition=Krea2WeightDefinition,
+        )
+        model.bits = quantize
 
     @staticmethod
     def _apply_control_checkpoint(model, controlnet_path: str, controlnet_strength: float) -> None:
