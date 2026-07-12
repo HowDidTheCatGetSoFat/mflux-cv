@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 
 import mlx.core as mx
-import numpy as np
 import PIL.Image
 
 from mflux.models.common.vae.vae_util import VAEUtil
@@ -14,11 +13,11 @@ from mflux.utils.image_util import ImageUtil
 class Krea2DepthUtil:
     """Turn a source image (or a supplied depth map) into a Krea 2 depth-control latent.
 
-    The reference depth-ControlNet was trained on Depth-Anything-V2 inverse-depth maps (near = white,
-    far = black), normalized to [0, 1]. mflux ships Depth Pro instead (native MLX, metric depth, near =
-    black), so its output is inverted here to match the training convention. Supplying a ready-made
-    Depth-Anything map via ``depth_image_path`` skips estimation and reproduces the trained input most
-    faithfully.
+    The reference depth-ControlNet was trained on Depth-Anything-V2 depth maps (near = white, far =
+    black), normalized to [0, 1]. mflux ships Depth Pro instead (native MLX), whose ``depth_image``
+    already follows the same near = white convention (it is fed un-inverted to FLUX.1-Depth-dev the same
+    way), so it is used directly. Supplying a ready-made Depth-Anything map via ``depth_image_path``
+    skips estimation and reproduces the trained input most faithfully.
     """
 
     @staticmethod
@@ -57,11 +56,10 @@ class Krea2DepthUtil:
                 raise FileNotFoundError(f"Depth map file not found: {depth_image_path}")
             return ImageUtil.load_image(depth_image_path)
 
-        # 2. Otherwise estimate from the source image with Depth Pro and invert to near = white.
+        # 2. Otherwise estimate from the source image with Depth Pro (already near = white, used as-is).
         if not image_path:
             raise ValueError("Either --depth-image-path or --image-path must be provided.")
         if depth_pro is None:
             raise ValueError("Depth Pro is required to estimate depth when no --depth-image-path is given.")
         result = depth_pro.create_depth_map(image_path=image_path)
-        inverted = 255 - np.array(result.depth_image.convert("L")).astype(np.uint8)
-        return PIL.Image.fromarray(inverted)
+        return result.depth_image
