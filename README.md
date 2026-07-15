@@ -20,6 +20,12 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.22-CV
+
+- Pulled in configurable VAE decode tiling (#475, credited under [Community PRs pulled in](#community-prs-pulled-in)):
+  `--vae-tiling` / `--vae-tile-size` decouple tiled decoding from full low-RAM mode, so you can cut peak
+  memory on large generations without the rest of the low-RAM penalty.
+
 ### 0.18.21-CV
 
 - Krea 2 depth ControlNet: fix the estimated-depth convention (Depth Pro already outputs near = white,
@@ -107,6 +113,9 @@ prior `+fxd0h` builds (0.18.1 through 0.18.5); this is the rebrand plus everythi
 - **[filipstrand/mflux#302](https://github.com/filipstrand/mflux/pull/302) by ZimengXiong** — new model:
   Qwen-Image-Layered (`mflux-generate-qwen-layered`) for decomposing an image into RGBA layers, with a
   low-memory chunked save path. We kept our README; the PR's stale old-structure README changes were dropped.
+- **[filipstrand/mflux#475](https://github.com/filipstrand/mflux/pull/475) by azrahello** — configurable
+  VAE decode tiling: `--vae-tiling` and `--vae-tile-size` (min 128, multiple of 16) enable tiled decoding
+  on its own, decoupled from `--low-ram`, to lower peak memory during the VAE decode phase. Applied cleanly.
 
 ### Krea 2 depth ControlNet
 
