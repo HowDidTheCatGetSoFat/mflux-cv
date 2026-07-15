@@ -184,7 +184,7 @@ class TestConfigResolutionQwenVersions:
 
     @pytest.mark.fast
     @pytest.mark.parametrize(
-        "alias, expected",
+        ("alias", "expected"),
         [
             ("qwen-image", "Qwen/Qwen-Image-2512"),
             ("qwen", "Qwen/Qwen-Image-2512"),
