@@ -20,6 +20,15 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.23-CV
+
+- Updated the default Qwen models to the latest releases (based on #475's sibling, #474, credited
+  under [Community PRs pulled in](#community-prs-pulled-in)): `qwen-image` now loads Qwen-Image-2512 and
+  `qwen-image-edit` loads Qwen-Image-Edit-2511. The architecture is identical to the prior releases, so
+  they are drop-in; both were validated end-to-end on Apple Silicon. Unlike the upstream PR, the old
+  `qwen-edit-2509` alias still resolves to the actual 2509 weights (kept as its own entry) instead of
+  silently pointing at the new default.
+
 ### 0.18.22-CV
 
 - Pulled in configurable VAE decode tiling (#475, credited under [Community PRs pulled in](#community-prs-pulled-in)):
@@ -116,6 +125,10 @@ prior `+fxd0h` builds (0.18.1 through 0.18.5); this is the rebrand plus everythi
 - **[filipstrand/mflux#475](https://github.com/filipstrand/mflux/pull/475) by azrahello** — configurable
   VAE decode tiling: `--vae-tiling` and `--vae-tile-size` (min 128, multiple of 16) enable tiled decoding
   on its own, decoupled from `--low-ram`, to lower peak memory during the VAE decode phase. Applied cleanly.
+- **[filipstrand/mflux#474](https://github.com/filipstrand/mflux/pull/474) by imbible** — bump the default
+  Qwen models to Qwen-Image-2512 and Qwen-Image-Edit-2511. Both validated generating end-to-end on Apple
+  Silicon (identical architecture, drop-in). We diverged in one place: kept a separate `qwen-image-edit-2509`
+  entry so `qwen-edit-2509` still resolves to the real 2509 weights instead of the new default.
 
 ### Krea 2 depth ControlNet
 

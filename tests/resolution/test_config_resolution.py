@@ -177,3 +177,27 @@ class TestConfigResolutionRules:
         config = ConfigResolution.resolve(model_name="schnell-style-dev", base_model="dev")
 
         assert config.base_model == "black-forest-labs/FLUX.1-dev"
+
+
+class TestConfigResolutionQwenVersions:
+    """Lock the Qwen alias -> checkpoint contract after bumping the defaults to 2512 / 2511."""
+
+    @pytest.mark.fast
+    @pytest.mark.parametrize(
+        "alias, expected",
+        [
+            ("qwen-image", "Qwen/Qwen-Image-2512"),
+            ("qwen", "Qwen/Qwen-Image-2512"),
+            ("qwen-image-2512", "Qwen/Qwen-Image-2512"),
+            ("qwen-2512", "Qwen/Qwen-Image-2512"),
+            ("qwen-image-edit", "Qwen/Qwen-Image-Edit-2511"),
+            ("qwen-edit", "Qwen/Qwen-Image-Edit-2511"),
+            ("qwen-edit-2511", "Qwen/Qwen-Image-Edit-2511"),
+            ("qwen-image-edit-2511", "Qwen/Qwen-Image-Edit-2511"),
+            # The previous Edit release stays reachable and must not point at the new default.
+            ("qwen-edit-2509", "Qwen/Qwen-Image-Edit-2509"),
+            ("qwen-image-edit-2509", "Qwen/Qwen-Image-Edit-2509"),
+        ],
+    )
+    def test_qwen_alias_resolves_to_expected_checkpoint(self, alias, expected):
+        assert ConfigResolution.resolve(model_name=alias).model_name == expected
