@@ -54,3 +54,10 @@ def test_vae_tile_size_rejects_non_multiple_of_16(parser: CommandLineParser):
     with patch("sys.argv", ["mflux-generate", "--vae-tile-size", "200"]):
         with pytest.raises(SystemExit):
             parser.parse_args()
+
+
+@pytest.mark.fast
+def test_vae_tile_size_rejects_non_integer(parser: CommandLineParser):
+    with patch("sys.argv", ["mflux-generate", "--vae-tile-size", "128.5"]):
+        with pytest.raises(SystemExit):
+            parser.parse_args()
