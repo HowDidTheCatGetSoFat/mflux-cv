@@ -535,8 +535,8 @@ AVAILABLE_MODELS = {
     ),
     "qwen-image": ModelConfig(
         priority=15,
-        aliases=["qwen-image", "qwen"],
-        model_name="Qwen/Qwen-Image",
+        aliases=["qwen-image", "qwen", "qwen-image-2512", "qwen-2512"],
+        model_name="Qwen/Qwen-Image-2512",
         base_model=None,
         controlnet_model=None,
         custom_transformer_model=None,
@@ -550,7 +550,24 @@ AVAILABLE_MODELS = {
     ),
     "qwen-image-edit": ModelConfig(
         priority=16,
-        aliases=["qwen-image-edit", "qwen-edit", "qwen-edit-plus", "qwen-edit-2509"],
+        aliases=["qwen-image-edit", "qwen-edit", "qwen-edit-plus", "qwen-edit-2511", "qwen-image-edit-2511"],
+        model_name="Qwen/Qwen-Image-Edit-2511",
+        base_model=None,
+        controlnet_model=None,
+        custom_transformer_model=None,
+        num_train_steps=None,
+        max_sequence_length=None,
+        supports_guidance=None,
+        requires_sigma_shift=True,
+        sigma_max_shift=0.9,
+        sigma_max_seq_len=8192,
+        sigma_shift_terminal=0.02,
+    ),
+    "qwen-image-edit-2509": ModelConfig(
+        # Keep the previous Edit release reachable so `qwen-edit-2509` resolves to the actual 2509
+        # weights instead of silently pointing at the new default (which upstream #474's alias did).
+        priority=16,
+        aliases=["qwen-image-edit-2509", "qwen-edit-2509"],
         model_name="Qwen/Qwen-Image-Edit-2509",
         base_model=None,
         controlnet_model=None,
