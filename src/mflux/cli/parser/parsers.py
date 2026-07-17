@@ -329,29 +329,37 @@ class CommandLineParser(argparse.ArgumentParser):
         be stacked, but a single use keeps the original scalar shape (which the metadata round-trip
         and every existing caller expect). Only a genuine stack stays a list."""
         image_paths = getattr(namespace, "controlnet_image_path", None)
+        strengths = getattr(namespace, "controlnet_strength", None)
+        cn_paths = getattr(namespace, "controlnet_path", None)
+
+        # Validate counts against the RAW values, before a single image collapses to a scalar:
+        # otherwise "one image, two strengths" would skip these checks and only blow up at load time.
+        if image_paths is None:
+            num_images = 0
+        elif isinstance(image_paths, list):
+            num_images = len(image_paths)
+        else:
+            num_images = 1
+
+        if isinstance(strengths, list) and len(strengths) > 1 and len(strengths) != num_images:
+            self.error(
+                f"--controlnet-strength was given {len(strengths)} time(s) but --controlnet-image-path "
+                f"{num_images} time(s). Pass one strength per controlnet, or a single one for all."
+            )
+        if cn_paths and num_images and len(cn_paths) != num_images:
+            self.error(
+                f"--controlnet-path was given {len(cn_paths)} time(s) but --controlnet-image-path "
+                f"{num_images} time(s). Pass one control image per controlnet."
+            )
+
+        # Collapse to the scalar shape for the ordinary single-controlnet case.
         if isinstance(image_paths, list) and len(image_paths) == 1:
             namespace.controlnet_image_path = image_paths[0]
-
-        strengths = getattr(namespace, "controlnet_strength", None)
         if isinstance(strengths, list) and len(strengths) == 1:
             strengths = strengths[0]
         if strengths is None:
             strengths = ui_defaults.CONTROLNET_STRENGTH
         namespace.controlnet_strength = strengths
-
-        # One strength for all, or exactly one per stacked controlnet.
-        paths = getattr(namespace, "controlnet_image_path", None)
-        if isinstance(paths, list) and isinstance(strengths, list) and len(strengths) != len(paths):
-            self.error(
-                f"--controlnet-strength was given {len(strengths)} time(s) but --controlnet-image-path "
-                f"{len(paths)} time(s). Pass one strength per controlnet, or a single one for all."
-            )
-        cn_paths = getattr(namespace, "controlnet_path", None)
-        if cn_paths and isinstance(paths, list) and len(cn_paths) != len(paths):
-            self.error(
-                f"--controlnet-path was given {len(cn_paths)} time(s) but --controlnet-image-path "
-                f"{len(paths)} time(s). Pass one control image per controlnet."
-            )
 
     def _normalize_atomic_image_args(self, namespace: argparse.Namespace) -> None:
         if not hasattr(namespace, "image") or namespace.image is None:
