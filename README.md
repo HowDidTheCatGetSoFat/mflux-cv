@@ -20,6 +20,14 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.24-CV
+
+- FLUX.2-klein now exposes `flux2-klein-edit` / `flux2-edit` / `klein-edit` aliases (it does txt2img
+  and edit from the same weights), so the edit variant is selectable by name — used by the
+  ComfyUI-mflux-AnyModel node.
+- Qwen-Image-Edit: skip the unconditional pass at guidance 1.0 (it reduces to the conditional noise
+  there), halving per-step compute for CFG-distilled setups like the Lightning step-reduction LoRAs.
+
 ### 0.18.23-CV
 
 - Updated the default Qwen models to the latest releases (based on #475's sibling, #474, credited
