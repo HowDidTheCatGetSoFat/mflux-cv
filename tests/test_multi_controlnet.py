@@ -120,8 +120,11 @@ def test_single_controlnet_keeps_the_scalar_shape():
 
 
 def test_strength_defaults_to_the_scalar_default():
+    from mflux.cli.defaults import defaults as ui_defaults
+
     args = _parse(["--prompt", "x", "--controlnet-image-path", "a.png"])
     assert isinstance(args.controlnet_strength, float)
+    assert args.controlnet_strength == pytest.approx(ui_defaults.CONTROLNET_STRENGTH)
 
 
 def test_repeating_the_flags_stacks_controlnets():
@@ -178,6 +181,7 @@ def test_canny_preprocessing_is_decided_per_controlnet_from_its_own_checkpoint()
     from mflux.models.common.config.model_config import ModelConfig
 
     assert Flux1Controlnet._source_is_canny("InstantX/FLUX.1-dev-Controlnet-Canny")
+    assert Flux1Controlnet._source_is_canny("XLabs-AI/flux-controlnet-canny")  # published lowercase
     assert not Flux1Controlnet._source_is_canny("Shakker-Labs/FLUX.1-dev-ControlNet-Depth")
     assert not Flux1Controlnet._source_is_canny("/local/depth-controlnet")
     assert not Flux1Controlnet._source_is_canny(None)

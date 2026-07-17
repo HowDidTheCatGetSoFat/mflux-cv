@@ -70,9 +70,10 @@ class Flux1Controlnet(nn.Module):
 
     @staticmethod
     def _source_is_canny(source: str | None) -> bool:
-        """Whether a controlnet checkpoint expects Canny edges, judged from its name. This is the
-        same match ModelConfig.is_canny() makes, applied per net so a stack can mix control types."""
-        return source is not None and "Canny" in str(source)
+        """Whether a controlnet checkpoint expects Canny edges, judged from its name, so a stack can
+        mix control types. Matched case-insensitively: published canny controlnets spell it both ways
+        (InstantX/FLUX.1-dev-Controlnet-Canny, XLabs-AI/flux-controlnet-canny)."""
+        return source is not None and "canny" in str(source).lower()
 
     @staticmethod
     def _broadcast_samples(samples: list[mx.array], num_blocks: int) -> list[mx.array] | None:
