@@ -139,7 +139,8 @@ def test_repeating_the_flags_stacks_controlnets():
 def test_one_strength_applies_to_every_stacked_controlnet():
     args = _parse([
         "--prompt", "x",
-        "--controlnet-image-path", "a.png", "--controlnet-image-path", "b.png",
+        "--controlnet-image-path", "a.png", "--controlnet-path", "org/a",
+        "--controlnet-image-path", "b.png", "--controlnet-path", "org/b",
         "--controlnet-strength", "0.5",
     ])
     assert args.controlnet_image_path == ["a.png", "b.png"]
@@ -150,8 +151,19 @@ def test_mismatched_strength_count_is_rejected():
     with pytest.raises(SystemExit):
         _parse([
             "--prompt", "x",
-            "--controlnet-image-path", "a.png", "--controlnet-image-path", "b.png",
+            "--controlnet-image-path", "a.png", "--controlnet-path", "org/a",
+            "--controlnet-image-path", "b.png", "--controlnet-path", "org/b",
             "--controlnet-strength", "0.5", "--controlnet-strength", "0.6", "--controlnet-strength", "0.7",
+        ])
+
+
+def test_stacking_without_controlnet_paths_is_rejected():
+    # The model config names a single controlnet, so several control images cannot be satisfied.
+    # This must fail during parsing, not after the model has been loaded.
+    with pytest.raises(SystemExit):
+        _parse([
+            "--prompt", "x",
+            "--controlnet-image-path", "a.png", "--controlnet-image-path", "b.png",
         ])
 
 

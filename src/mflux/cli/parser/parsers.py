@@ -346,6 +346,14 @@ class CommandLineParser(argparse.ArgumentParser):
                 f"--controlnet-strength was given {len(strengths)} time(s) but --controlnet-image-path "
                 f"{num_images} time(s). Pass one strength per controlnet, or a single one for all."
             )
+        if num_images > 1 and not cn_paths:
+            # Only the model config's single controlnet would load, so the stack could not be
+            # satisfied. Say so now rather than after the model has been loaded.
+            self.error(
+                f"--controlnet-image-path was given {num_images} time(s) but no --controlnet-path. "
+                f"Stacking controlnets needs one --controlnet-path checkpoint per control image; "
+                f"the model config only provides a single controlnet."
+            )
         if cn_paths and num_images and len(cn_paths) != num_images:
             self.error(
                 f"--controlnet-path was given {len(cn_paths)} time(s) but --controlnet-image-path "
