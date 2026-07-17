@@ -172,23 +172,28 @@ def test_controlnet_path_without_a_control_image_is_rejected():
             parser.parse_args()
 
 
-def test_canny_preprocessing_follows_the_config_only_when_the_config_picks_the_controlnet():
-    # The config's is_canny describes the controlnet IT names. An explicitly supplied checkpoint may
-    # be anything (a depth net), so its control image must not be run through the Canny detector.
+def test_canny_preprocessing_is_decided_per_controlnet_from_its_own_checkpoint():
+    # A stack can mix control types, so each net's preprocessing comes from its own checkpoint name
+    # rather than from the config's single is_canny flag.
     from mflux.models.common.config.model_config import ModelConfig
 
-    canny_cfg = ModelConfig.from_name("dev-controlnet-canny")
-    assert canny_cfg.is_canny() is True
+    assert Flux1Controlnet._source_is_canny("InstantX/FLUX.1-dev-Controlnet-Canny")
+    assert not Flux1Controlnet._source_is_canny("Shakker-Labs/FLUX.1-dev-ControlNet-Depth")
+    assert not Flux1Controlnet._source_is_canny("/local/depth-controlnet")
+    assert not Flux1Controlnet._source_is_canny(None)
 
-    from_config = Flux1Controlnet.__new__(Flux1Controlnet)
-    from_config.controlnet_from_config = True
-    from_config.model_config = canny_cfg
-    assert canny_cfg.is_canny() and from_config.controlnet_from_config
+    # and it agrees with what the model config decides for its own controlnet, so a config-driven
+    # canny run is preprocessed exactly as before
+    for alias in ("dev-controlnet-canny", "dev-controlnet-upscaler"):
+        cfg = ModelConfig.from_name(alias)
+        assert Flux1Controlnet._source_is_canny(cfg.controlnet_model) == cfg.is_canny()
 
-    explicit = Flux1Controlnet.__new__(Flux1Controlnet)
-    explicit.controlnet_from_config = False
-    explicit.model_config = canny_cfg
-    assert not (canny_cfg.is_canny() and explicit.controlnet_from_config)
+
+def test_canny_is_applied_to_the_canny_net_only_in_a_mixed_stack():
+    # Drive the real per-image decision the generate loop makes over a depth + canny stack.
+    sources = ["Shakker-Labs/FLUX.1-dev-ControlNet-Depth", "InstantX/FLUX.1-dev-Controlnet-Canny"]
+    decisions = [Flux1Controlnet._source_is_canny(s) for s in sources]
+    assert decisions == [False, True]
 
 
 def test_saving_a_stack_is_rejected_rather_than_dropping_nets():

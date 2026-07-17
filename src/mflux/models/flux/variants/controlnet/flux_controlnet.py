@@ -46,10 +46,10 @@ class Flux1Controlnet(nn.Module):
         # depth + canny). controlnet_path stays as the single-checkpoint form. With neither, the
         # controlnet named by the model config is used.
         sources = controlnet_paths or ([controlnet_path] if controlnet_path else None)
-        # is_canny is a property of the model config, so it only describes the controlnet the config
-        # names. Once the caller picks checkpoints itself, the config can no longer say what
-        # preprocessing each one wants, so the control images are taken as given.
-        self.controlnet_from_config = sources is None
+        # Remember where each net came from so its control image can be preprocessed per net: the
+        # model config's single is_canny cannot describe a stack (a depth map must not go through the
+        # Canny detector), but each checkpoint's own name can, using the same match is_canny() uses.
+        self.controlnet_sources = list(sources) if sources else [model_config.controlnet_model]
         FluxInitializer.init_controlnet(
             model=self,
             quantize=quantize,
@@ -67,6 +67,12 @@ class Flux1Controlnet(nn.Module):
         keep working now that the nets are stored as a list."""
         nets = getattr(self, "transformer_controlnets", None)
         return nets[0] if nets else None
+
+    @staticmethod
+    def _source_is_canny(source: str | None) -> bool:
+        """Whether a controlnet checkpoint expects Canny edges, judged from its name. This is the
+        same match ModelConfig.is_canny() makes, applied per net so a stack can mix control types."""
+        return source is not None and "Canny" in str(source)
 
     @staticmethod
     def _broadcast_samples(samples: list[mx.array], num_blocks: int) -> list[mx.array] | None:
@@ -131,19 +137,17 @@ class Flux1Controlnet(nn.Module):
             controlnet_strength=strengths[0],
         )
 
-        # 1. Encode each controlnet reference image. Canny preprocessing describes the controlnet the
-        #    model config names, so it is applied only when that is the controlnet in use. Once the
-        #    caller supplies its own checkpoints (one or several), the config cannot say what each
-        #    one expects, so the control images are used as given.
-        is_canny = self.model_config.is_canny() and self.controlnet_from_config
+        # 1. Encode each controlnet reference image, deciding the Canny preprocessing per net from
+        #    that net's own checkpoint name. A stack of depth + canny therefore preprocesses only the
+        #    canny image, and a config-driven canny run behaves exactly as before.
         conditions, canny_images = [], []
-        for path in image_paths:
+        for path, source in zip(image_paths, self.controlnet_sources):
             condition, canny_image = ControlnetUtil.encode_image(
                 vae=self.vae,
                 width=config.width,
                 height=config.height,
                 controlnet_image_path=path,
-                is_canny=is_canny,
+                is_canny=Flux1Controlnet._source_is_canny(source),
             )
             conditions.append(condition)
             canny_images.append(canny_image)
@@ -230,7 +234,11 @@ class Flux1Controlnet(nn.Module):
         latents = FluxLatentCreator.unpack_latents(latents=latents, height=config.height, width=config.width)
         decoded = VAEUtil.decode(vae=self.vae, latent=latents, tiling_config=self.tiling_config)
 
-        # 11. Read metadata from the (first) controlnet image if available
+        # 11. Read metadata from the (first) controlnet image if available.
+        #     The metadata schema holds a single controlnet (GeneratedImage stores one path and one
+        #     strength), so a stacked run records only its first net. Metadata-driven re-runs of a
+        #     stack are therefore unsupported and documented as such; single-controlnet metadata is
+        #     unchanged. Recording the whole stack would be a metadata schema change.
         primary_image_path = image_paths[0]
         init_metadata = MetadataReader.read_all_metadata(primary_image_path) if primary_image_path else None
 

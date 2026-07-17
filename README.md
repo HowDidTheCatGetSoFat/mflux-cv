@@ -41,11 +41,12 @@ goes to their authors.
   It was previously accepted by the constructor and silently ignored.
 - A single `--controlnet-image-path` / `--controlnet-strength` keeps its scalar shape, so existing
   commands and the metadata round-trip are unchanged.
-- Note on Canny preprocessing: the model config's `is_canny` flag describes the controlnet the config
-  names, so it is applied only when that is the controlnet in use (unchanged behavior). Once you
-  select checkpoints yourself with `--controlnet-path`, the config can no longer say what each one
-  expects (a depth map must not go through the Canny detector), so control images are used as given:
-  pass them already in each net's input form.
+- Canny preprocessing is decided per controlnet, from that net's own checkpoint name (the same match
+  `is_canny()` makes). A depth + canny stack therefore preprocesses only the canny image, and a
+  config-driven canny run behaves exactly as before.
+- Known limitation: the image metadata holds a single controlnet, so a stacked run records only its
+  first net there. Metadata-driven re-runs of a stack are not supported; pass the flags explicitly.
+  Single-controlnet metadata is unchanged.
 
 ### 0.18.24-CV
 
