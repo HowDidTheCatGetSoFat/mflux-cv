@@ -172,6 +172,25 @@ def test_controlnet_path_without_a_control_image_is_rejected():
             parser.parse_args()
 
 
+def test_canny_preprocessing_follows_the_config_only_when_the_config_picks_the_controlnet():
+    # The config's is_canny describes the controlnet IT names. An explicitly supplied checkpoint may
+    # be anything (a depth net), so its control image must not be run through the Canny detector.
+    from mflux.models.common.config.model_config import ModelConfig
+
+    canny_cfg = ModelConfig.from_name("dev-controlnet-canny")
+    assert canny_cfg.is_canny() is True
+
+    from_config = Flux1Controlnet.__new__(Flux1Controlnet)
+    from_config.controlnet_from_config = True
+    from_config.model_config = canny_cfg
+    assert canny_cfg.is_canny() and from_config.controlnet_from_config
+
+    explicit = Flux1Controlnet.__new__(Flux1Controlnet)
+    explicit.controlnet_from_config = False
+    explicit.model_config = canny_cfg
+    assert not (canny_cfg.is_canny() and explicit.controlnet_from_config)
+
+
 def test_saving_a_stack_is_rejected_rather_than_dropping_nets():
     # The saved layout holds a single controlnet, so saving a stack must not silently write only
     # the first net.
