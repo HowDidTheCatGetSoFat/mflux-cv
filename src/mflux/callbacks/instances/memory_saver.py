@@ -97,8 +97,9 @@ class MemorySaver(BeforeLoopCallback, InLoopCallback, AfterLoopCallback):
 
     def _delete_transformer(self) -> None:
         self.model.transformer = None
-        if hasattr(self.model, "transformer_controlnet"):
-            self.model.transformer_controlnet = None
+        # Controlnets are stored as a list (a stack of nets); clearing it releases them all.
+        if hasattr(self.model, "transformer_controlnets"):
+            self.model.transformer_controlnets = []
         if hasattr(self.model, "conditional_transformer"):
             self.model.conditional_transformer = None
         if hasattr(self.model, "unconditional_transformer"):
