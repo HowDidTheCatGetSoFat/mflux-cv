@@ -46,6 +46,10 @@ class Flux1Controlnet(nn.Module):
         # depth + canny). controlnet_path stays as the single-checkpoint form. With neither, the
         # controlnet named by the model config is used.
         sources = controlnet_paths or ([controlnet_path] if controlnet_path else None)
+        # is_canny is a property of the model config, so it only describes the controlnet the config
+        # names. Once the caller picks checkpoints itself, the config can no longer say what
+        # preprocessing each one wants, so the control images are taken as given.
+        self.controlnet_from_config = sources is None
         FluxInitializer.init_controlnet(
             model=self,
             quantize=quantize,
@@ -127,9 +131,11 @@ class Flux1Controlnet(nn.Module):
             controlnet_strength=strengths[0],
         )
 
-        # 1. Encode each controlnet reference image. The canny preprocessing is a property of the
-        #    model config and can only describe one controlnet, so it is applied for the single-net
-        #    case; a stack expects control images that are already in each net's input form.
+        # 1. Encode each controlnet reference image. Canny preprocessing describes the controlnet the
+        #    model config names, so it is applied only when that is the controlnet in use. Once the
+        #    caller supplies its own checkpoints (one or several), the config cannot say what each
+        #    one expects, so the control images are used as given.
+        is_canny = self.model_config.is_canny() and self.controlnet_from_config
         conditions, canny_images = [], []
         for path in image_paths:
             condition, canny_image = ControlnetUtil.encode_image(
@@ -137,7 +143,7 @@ class Flux1Controlnet(nn.Module):
                 width=config.width,
                 height=config.height,
                 controlnet_image_path=path,
-                is_canny=self.model_config.is_canny() and len(nets) == 1,
+                is_canny=is_canny,
             )
             conditions.append(condition)
             canny_images.append(canny_image)
