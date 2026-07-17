@@ -116,7 +116,6 @@ class QwenImageEdit(nn.Module):
             try:
                 # 5.t Concatenate the updated latents with the static image latents
                 hidden_states = mx.concatenate([latents, static_image_latents], axis=1)
-                hidden_states_neg = mx.concatenate([latents, static_image_latents], axis=1)
 
                 # 6.t Predict the noise
                 if num_images > 1:
@@ -133,16 +132,22 @@ class QwenImageEdit(nn.Module):
                     qwen_image_ids=qwen_image_ids,
                     cond_image_grid=cond_image_grid,
                 )[:, : latents.shape[1]]
-                noise_negative = self.transformer(
-                    t=t,
-                    config=config,
-                    hidden_states=hidden_states_neg,
-                    encoder_hidden_states=negative_prompt_embeds,
-                    encoder_hidden_states_mask=negative_prompt_mask,
-                    qwen_image_ids=qwen_image_ids,
-                    cond_image_grid=cond_image_grid,
-                )[:, : latents.shape[1]]
-                guided_noise = QwenImage.compute_guided_noise(noise, noise_negative, config.guidance)
+                # Skip the unconditional pass at guidance 1.0: compute_guided_noise reduces to `noise`
+                # there, so the second full transformer call is pure waste. This halves per-step compute
+                # for CFG-distilled setups (e.g. the Lightning step-reduction LoRAs, which run at CFG 1).
+                if config.guidance == 1.0:
+                    guided_noise = noise
+                else:
+                    noise_negative = self.transformer(
+                        t=t,
+                        config=config,
+                        hidden_states=hidden_states,
+                        encoder_hidden_states=negative_prompt_embeds,
+                        encoder_hidden_states_mask=negative_prompt_mask,
+                        qwen_image_ids=qwen_image_ids,
+                        cond_image_grid=cond_image_grid,
+                    )[:, : latents.shape[1]]
+                    guided_noise = QwenImage.compute_guided_noise(noise, noise_negative, config.guidance)
 
                 # 7.t Take one denoise step
                 latents = config.scheduler.step(noise=guided_noise, timestep=t, latents=latents)

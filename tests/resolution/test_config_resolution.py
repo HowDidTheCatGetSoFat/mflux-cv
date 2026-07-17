@@ -201,3 +201,13 @@ class TestConfigResolutionQwenVersions:
     )
     def test_qwen_alias_resolves_to_expected_checkpoint(self, alias, expected):
         assert ConfigResolution.resolve(model_name=alias).model_name == expected
+
+
+class TestConfigResolutionFlux2Edit:
+    """FLUX.2-klein does txt2img and edit from the same weights, so the edit aliases resolve to the
+    flux2-klein-4b config (the variant class is chosen separately, by the caller)."""
+
+    @pytest.mark.fast
+    @pytest.mark.parametrize("alias", ["flux2-klein-edit", "flux2-edit", "klein-edit", "flux2-klein-4b"])
+    def test_flux2_edit_aliases_resolve_to_klein_4b(self, alias):
+        assert ConfigResolution.resolve(model_name=alias).model_name == "black-forest-labs/FLUX.2-klein-4B"

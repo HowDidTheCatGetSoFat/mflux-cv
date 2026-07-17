@@ -404,7 +404,8 @@ AVAILABLE_MODELS = {
     ),
     "flux2-klein-4b": ModelConfig(
         priority=11,
-        aliases=["flux2-klein-4b", "flux2-klein-4B", "flux2-klein", "klein-4b", "klein-4B"],
+        aliases=["flux2-klein-4b", "flux2-klein-4B", "flux2-klein", "klein-4b", "klein-4B",
+                 "flux2-klein-edit", "flux2-edit", "klein-edit"],
         model_name="black-forest-labs/FLUX.2-klein-4B",
         base_model=None,
         controlnet_model=None,
