@@ -239,8 +239,9 @@ class CommandLineParser(argparse.ArgumentParser):
 
     def add_controlnet_arguments(self, mode: str | None = None, require_image=False) -> None:
         self.supports_controlnet = True
-        self.add_argument("--controlnet-image-path", type=str, required=require_image, help="Local path of the image to use as input for controlnet.")
-        self.add_argument("--controlnet-strength", type=float, default=ui_defaults.CONTROLNET_STRENGTH, help=f"Controls how strongly the control image influences the output image. A value of 0.0 means no influence. (Default is {ui_defaults.CONTROLNET_STRENGTH})")
+        self.add_argument("--controlnet-image-path", type=str, action="append", required=require_image, help="Local path of the image to use as input for controlnet. Repeat to stack several controlnets, pairing in order with --controlnet-path.")
+        self.add_argument("--controlnet-path", type=str, action="append", default=None, help="Local path or HuggingFace repo of a controlnet checkpoint. Repeat to stack several controlnets (e.g. depth + canny). Omit to use the controlnet named by the model config.")
+        self.add_argument("--controlnet-strength", type=float, action="append", default=None, help=f"Controls how strongly the control image influences the output image. A value of 0.0 means no influence. Repeat to give each stacked controlnet its own strength. (Default is {ui_defaults.CONTROLNET_STRENGTH})")
         if mode == 'canny':
             self.add_argument("--controlnet-save-canny", action="store_true", help="If set, save the Canny edge detection reference input image.")
 
@@ -322,6 +323,35 @@ class CommandLineParser(argparse.ArgumentParser):
             scales.append(scale)
         namespace.lora_paths = paths
         namespace.lora_scales = scales
+
+    def _normalize_controlnet_args(self, namespace: argparse.Namespace) -> None:
+        """--controlnet-image-path / --controlnet-strength are repeatable so several controlnets can
+        be stacked, but a single use keeps the original scalar shape (which the metadata round-trip
+        and every existing caller expect). Only a genuine stack stays a list."""
+        image_paths = getattr(namespace, "controlnet_image_path", None)
+        if isinstance(image_paths, list) and len(image_paths) == 1:
+            namespace.controlnet_image_path = image_paths[0]
+
+        strengths = getattr(namespace, "controlnet_strength", None)
+        if isinstance(strengths, list) and len(strengths) == 1:
+            strengths = strengths[0]
+        if strengths is None:
+            strengths = ui_defaults.CONTROLNET_STRENGTH
+        namespace.controlnet_strength = strengths
+
+        # One strength for all, or exactly one per stacked controlnet.
+        paths = getattr(namespace, "controlnet_image_path", None)
+        if isinstance(paths, list) and isinstance(strengths, list) and len(strengths) != len(paths):
+            self.error(
+                f"--controlnet-strength was given {len(strengths)} time(s) but --controlnet-image-path "
+                f"{len(paths)} time(s). Pass one strength per controlnet, or a single one for all."
+            )
+        cn_paths = getattr(namespace, "controlnet_path", None)
+        if cn_paths and isinstance(paths, list) and len(cn_paths) != len(paths):
+            self.error(
+                f"--controlnet-path was given {len(cn_paths)} time(s) but --controlnet-image-path "
+                f"{len(paths)} time(s). Pass one control image per controlnet."
+            )
 
     def _normalize_atomic_image_args(self, namespace: argparse.Namespace) -> None:
         if not hasattr(namespace, "image") or namespace.image is None:
@@ -426,6 +456,11 @@ class CommandLineParser(argparse.ArgumentParser):
             if self.supports_image_outpaint:
                 if namespace.image_outpaint_padding is None:
                     namespace.image_outpaint_padding = prior_gen_metadata.get("image_outpaint_padding", None)
+
+        # Collapse the repeatable controlnet flags back to scalars for the ordinary single-controlnet
+        # case. Runs after the metadata block, which relies on the unset (None) defaults.
+        if self.supports_controlnet:
+            self._normalize_controlnet_args(namespace)
 
         # Only require model if we're not in training mode and require_model_arg is True
         if hasattr(namespace, "model") and namespace.model is None and not has_training_args and self.require_model_arg:

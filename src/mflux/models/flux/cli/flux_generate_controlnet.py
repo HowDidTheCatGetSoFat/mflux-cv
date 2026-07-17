@@ -28,6 +28,7 @@ def main():
         model_config=_get_controlnet_model_config(args.model),
         quantize=args.quantize,
         model_path=args.model_path,
+        controlnet_paths=args.controlnet_path,
         **lora_init_kwargs_from_args(args),
     )
 

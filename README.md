@@ -20,6 +20,32 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.25-CV
+
+- **Multi-ControlNet for FLUX.1.** Several controlnets can now be stacked, each with its own
+  checkpoint, control image and strength (for example depth + canny). Repeat `--controlnet-path`
+  and `--controlnet-image-path` (and optionally `--controlnet-strength`, or give one value for all):
+
+  ```
+  mflux-generate-controlnet -m dev --prompt "a modern living room" \
+      --controlnet-path org/depth --controlnet-image-path depth.png --controlnet-strength 0.7 \
+      --controlnet-path org/canny --controlnet-image-path canny.png --controlnet-strength 0.4
+  ```
+
+  The residual path is additive, so each net's residuals are spread over the transformer's blocks
+  with the rule the transformer already applies and then summed. Controlnets with different block
+  counts stack correctly, and a single controlnet renders exactly as before (the expansion
+  reproduces the transformer's own selection index for index, which is pinned by a test).
+- `--controlnet-path` is new: it selects a controlnet checkpoint (local path or HF repo) instead of
+  the one named by the model config, which also makes `Flux1Controlnet(controlnet_path=...)` work.
+  It was previously accepted by the constructor and silently ignored.
+- A single `--controlnet-image-path` / `--controlnet-strength` keeps its scalar shape, so existing
+  commands and the metadata round-trip are unchanged.
+- Note on Canny preprocessing: the model config carries one `is_canny` flag, which cannot describe a
+  mixed stack (a depth map must not be run through the Canny detector). It is therefore applied only
+  when a single controlnet is active, exactly as before. When stacking, pass control images that are
+  already in each net's input form.
+
 ### 0.18.24-CV
 
 - FLUX.2-klein now exposes `flux2-klein-edit` / `flux2-edit` / `klein-edit` aliases (it does txt2img

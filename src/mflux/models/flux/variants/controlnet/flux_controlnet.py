@@ -1,3 +1,5 @@
+import math
+
 import mlx.core as mx
 from mlx import nn
 
@@ -24,7 +26,7 @@ from mflux.utils.metadata_reader import MetadataReader
 class Flux1Controlnet(nn.Module):
     vae: VAE
     transformer: Transformer
-    transformer_controlnet: TransformerControlnet
+    transformer_controlnets: list[TransformerControlnet]
     t5_text_encoder: T5Encoder
     clip_text_encoder: CLIPEncoder
 
@@ -36,9 +38,14 @@ class Flux1Controlnet(nn.Module):
         lora_scales: list[float] | None = None,
         bake_lora: bool = True,
         controlnet_path: str | None = None,
+        controlnet_paths: list[str] | None = None,
         model_config: ModelConfig = ModelConfig.dev_controlnet_canny(),
     ):
         super().__init__()
+        # Stack several controlnets by passing controlnet_paths (each is a separate checkpoint, e.g.
+        # depth + canny). controlnet_path stays as the single-checkpoint form. With neither, the
+        # controlnet named by the model config is used.
+        sources = controlnet_paths or ([controlnet_path] if controlnet_path else None)
         FluxInitializer.init_controlnet(
             model=self,
             quantize=quantize,
@@ -47,21 +54,69 @@ class Flux1Controlnet(nn.Module):
             lora_scales=lora_scales,
             bake_lora=bake_lora,
             model_config=model_config,
+            controlnet_paths=sources,
         )
+
+    @property
+    def transformer_controlnet(self) -> TransformerControlnet | None:
+        """The first (or only) controlnet. Kept so single-controlnet callers and the model saver
+        keep working now that the nets are stored as a list."""
+        nets = getattr(self, "transformer_controlnets", None)
+        return nets[0] if nets else None
+
+    @staticmethod
+    def _broadcast_samples(samples: list[mx.array], num_blocks: int) -> list[mx.array] | None:
+        """Spread one controlnet's residuals over the transformer's blocks using the same rule the
+        transformer itself applies, so nets with different block counts become directly summable."""
+        if not samples:
+            return None
+        interval_control = int(math.ceil(num_blocks / len(samples)))
+        return [samples[idx // interval_control] for idx in range(num_blocks)]
+
+    @staticmethod
+    def _combine_samples(per_net_samples: list[list[mx.array]], num_blocks: int) -> list[mx.array]:
+        """Sum the residuals of every stacked controlnet, block by block. Returns a list as long as
+        the transformer's block list (so it indexes 1:1 there), or empty when no net contributed."""
+        expanded = [e for e in (Flux1Controlnet._broadcast_samples(s, num_blocks) for s in per_net_samples) if e is not None]  # fmt: off
+        if not expanded:
+            return []
+        total = expanded[0]
+        for other in expanded[1:]:
+            total = [a + b for a, b in zip(total, other)]
+        return total
 
     def generate_image(
         self,
         seed: int,
         prompt: str,
-        controlnet_image_path: StrOrBytesPath,
+        controlnet_image_path: StrOrBytesPath | list[StrOrBytesPath],
         num_inference_steps: int = 4,
         height: int = 1024,
         width: int = 1024,
         guidance: float = 4.0,
-        controlnet_strength: float = 1.0,
+        controlnet_strength: float | list[float] = 1.0,
         scheduler: str = "linear",
     ) -> GeneratedImage:
-        # 0. Create a new config based on the model type and input parameters
+        # 0. Normalize the per-controlnet inputs. A single path/strength keeps the original
+        #    single-controlnet call shape; lists drive the stacked controlnets loaded at init.
+        nets = self.transformer_controlnets
+        image_paths = list(controlnet_image_path) if isinstance(controlnet_image_path, (list, tuple)) else [controlnet_image_path]  # fmt: off
+        if isinstance(controlnet_strength, (list, tuple)):
+            strengths = [float(s) for s in controlnet_strength]
+        else:
+            strengths = [float(controlnet_strength)] * len(image_paths)
+
+        if len(image_paths) != len(nets):
+            raise ValueError(
+                f"Got {len(image_paths)} controlnet image(s) but {len(nets)} controlnet(s) are loaded. "
+                f"Pass one image per controlnet (and load them with controlnet_paths)."
+            )
+        if len(strengths) != len(nets):
+            raise ValueError(
+                f"Got {len(strengths)} controlnet strength(s) for {len(nets)} controlnet(s). "
+                f"Pass one strength per controlnet, or a single value for all."
+            )
+
         config = Config(
             width=width,
             height=height,
@@ -69,17 +124,24 @@ class Flux1Controlnet(nn.Module):
             scheduler=scheduler,
             model_config=self.model_config,
             num_inference_steps=num_inference_steps,
-            controlnet_strength=controlnet_strength,
+            controlnet_strength=strengths[0],
         )
 
-        # 1. Encode the controlnet reference image
-        controlnet_condition, canny_image = ControlnetUtil.encode_image(
-            vae=self.vae,
-            width=config.width,
-            height=config.height,
-            controlnet_image_path=controlnet_image_path,
-            is_canny=self.model_config.is_canny(),
-        )
+        # 1. Encode each controlnet reference image. The canny preprocessing is a property of the
+        #    model config and can only describe one controlnet, so it is applied for the single-net
+        #    case; a stack expects control images that are already in each net's input form.
+        conditions, canny_images = [], []
+        for path in image_paths:
+            condition, canny_image = ControlnetUtil.encode_image(
+                vae=self.vae,
+                width=config.width,
+                height=config.height,
+                controlnet_image_path=path,
+                is_canny=self.model_config.is_canny() and len(nets) == 1,
+            )
+            conditions.append(condition)
+            canny_images.append(canny_image)
+        canny_image = canny_images[0]
 
         # 2. Create the initial latents
         latents = FluxLatentCreator.create_noise(
@@ -107,14 +169,26 @@ class Flux1Controlnet(nn.Module):
                 # Scale model input if needed by the scheduler
                 latents = config.scheduler.scale_model_input(latents, t)
 
-                # 5.t Compute controlnet samples
-                controlnet_block_samples, controlnet_single_block_samples = self.transformer_controlnet(
-                    t=t,
-                    config=config,
-                    hidden_states=latents,
-                    prompt_embeds=prompt_embeds,
-                    pooled_prompt_embeds=pooled_prompt_embeds,
-                    controlnet_condition=controlnet_condition,
+                # 5.t Compute the controlnet samples of every stacked net, then sum them per block.
+                per_net_blocks, per_net_single_blocks = [], []
+                for net, condition, strength in zip(nets, conditions, strengths):
+                    block_samples, single_block_samples = net(
+                        t=t,
+                        config=config,
+                        hidden_states=latents,
+                        prompt_embeds=prompt_embeds,
+                        pooled_prompt_embeds=pooled_prompt_embeds,
+                        controlnet_condition=condition,
+                        controlnet_strength=strength,
+                    )
+                    per_net_blocks.append(block_samples)
+                    per_net_single_blocks.append(single_block_samples)
+
+                controlnet_block_samples = Flux1Controlnet._combine_samples(
+                    per_net_blocks, len(self.transformer.transformer_blocks)
+                )
+                controlnet_single_block_samples = Flux1Controlnet._combine_samples(
+                    per_net_single_blocks, len(self.transformer.single_transformer_blocks)
                 )
 
                 # 6.t Predict the noise
@@ -150,8 +224,9 @@ class Flux1Controlnet(nn.Module):
         latents = FluxLatentCreator.unpack_latents(latents=latents, height=config.height, width=config.width)
         decoded = VAEUtil.decode(vae=self.vae, latent=latents, tiling_config=self.tiling_config)
 
-        # 11. Read metadata from the controlnet image if available
-        init_metadata = MetadataReader.read_all_metadata(controlnet_image_path) if controlnet_image_path else None
+        # 11. Read metadata from the (first) controlnet image if available
+        primary_image_path = image_paths[0]
+        init_metadata = MetadataReader.read_all_metadata(primary_image_path) if primary_image_path else None
 
         return ImageUtil.to_image(
             decoded_latents=decoded,
@@ -161,7 +236,7 @@ class Flux1Controlnet(nn.Module):
             quantization=self.bits,
             lora_paths=self.lora_paths,
             lora_scales=self.lora_scales,
-            controlnet_image_path=controlnet_image_path,
+            controlnet_image_path=primary_image_path,
             generation_time=config.time_steps.format_dict["elapsed"],
             init_metadata=init_metadata,
         )

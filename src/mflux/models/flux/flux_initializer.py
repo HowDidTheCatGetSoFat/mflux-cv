@@ -107,6 +107,7 @@ class FluxInitializer:
         lora_paths: list[str] | None = None,
         lora_scales: list[float] | None = None,
         bake_lora: bool = True,
+        controlnet_paths: list[str] | None = None,
     ) -> None:
         FluxInitializer.init(
             model=model,
@@ -118,23 +119,30 @@ class FluxInitializer:
             bake_lora=bake_lora,
         )
 
+        # Each stacked controlnet is its own network loaded from its own checkpoint. With no
+        # explicit sources, fall back to the single controlnet the model config names.
+        sources = list(controlnet_paths) if controlnet_paths else [model_config.controlnet_model]
         controlnet_component = FluxControlnetWeightDefinition.get_controlnet_component()
-        controlnet_weights = WeightLoader.load_single(
-            component=controlnet_component,
-            repo_id=model_config.controlnet_model,
-        )
-        model.transformer_controlnet = TransformerControlnet(
-            model_config=model_config,
-            num_transformer_blocks=controlnet_weights.num_transformer_blocks(),
-            num_single_transformer_blocks=controlnet_weights.num_single_transformer_blocks(),
-        )
-        WeightApplier.apply_and_quantize_single(
-            weights=controlnet_weights,
-            model=model.transformer_controlnet,
-            component=controlnet_component,
-            quantize_arg=quantize,
-            quantization_predicate=FluxWeightDefinition.quantization_predicate,
-        )
+        nets = []
+        for source in sources:
+            controlnet_weights = WeightLoader.load_single(
+                component=controlnet_component,
+                repo_id=source,
+            )
+            net = TransformerControlnet(
+                model_config=model_config,
+                num_transformer_blocks=controlnet_weights.num_transformer_blocks(),
+                num_single_transformer_blocks=controlnet_weights.num_single_transformer_blocks(),
+            )
+            WeightApplier.apply_and_quantize_single(
+                weights=controlnet_weights,
+                model=net,
+                component=controlnet_component,
+                quantize_arg=quantize,
+                quantization_predicate=FluxWeightDefinition.quantization_predicate,
+            )
+            nets.append(net)
+        model.transformer_controlnets = nets
 
     @staticmethod
     def init_concept(

@@ -37,7 +37,12 @@ class TransformerControlnet(nn.Module):
         prompt_embeds: mx.array,
         pooled_prompt_embeds: mx.array,
         controlnet_condition: mx.array,
+        controlnet_strength: float | None = None,
     ) -> tuple[list[mx.array], list[mx.array]]:
+        # When several controlnets are stacked, each one carries its own strength, so it is passed
+        # in explicitly. Falling back to the config keeps the single-controlnet path unchanged.
+        strength = controlnet_strength if controlnet_strength is not None else config.controlnet_strength
+
         # 1. Create embeddings
         hidden_states = self.x_embedder(hidden_states) + self.controlnet_x_embedder(controlnet_condition)
         encoder_hidden_states = self.context_embedder(prompt_embeds)
@@ -56,6 +61,7 @@ class TransformerControlnet(nn.Module):
                 text_embeddings=text_embeddings,
                 image_rotary_embeddings=image_rotary_embeddings,
                 controlnet_block_samples=controlnet_block_samples,
+                controlnet_strength=strength,
             )
 
         # 3. Concat the hidden states
@@ -73,6 +79,7 @@ class TransformerControlnet(nn.Module):
                 text_embeddings=text_embeddings,
                 image_rotary_embeddings=image_rotary_embeddings,
                 controlnet_single_block_samples=controlnet_single_block_samples,
+                controlnet_strength=strength,
             )
 
         return controlnet_block_samples, controlnet_single_block_samples
@@ -87,6 +94,7 @@ class TransformerControlnet(nn.Module):
         text_embeddings: mx.array,
         image_rotary_embeddings: mx.array,
         controlnet_single_block_samples: list[mx.array],
+        controlnet_strength: float | None = None,
     ) -> mx.array:
         # 1. Apply single flux_transformer block
         hidden_states = block(
@@ -96,9 +104,10 @@ class TransformerControlnet(nn.Module):
         )
 
         # 2. Apply controlnet block
+        strength = controlnet_strength if controlnet_strength is not None else config.controlnet_strength
         states = hidden_states[:, encoder_hidden_states.shape[1] :]
         controlnet_sample = self.controlnet_single_blocks[idx](states)
-        scaled_controlnet_sample = controlnet_sample * config.controlnet_strength
+        scaled_controlnet_sample = controlnet_sample * strength
         controlnet_single_block_samples.append(scaled_controlnet_sample)
 
         return hidden_states
@@ -113,6 +122,7 @@ class TransformerControlnet(nn.Module):
         text_embeddings: mx.array,
         image_rotary_embeddings: mx.array,
         controlnet_block_samples: list[mx.array],
+        controlnet_strength: float | None = None,
     ) -> tuple[mx.array, mx.array]:
         # 1. Apply joint flux_transformer block
         encoder_hidden_states, hidden_states = block(
@@ -123,8 +133,9 @@ class TransformerControlnet(nn.Module):
         )
 
         # 2. Apply controlnet block
+        strength = controlnet_strength if controlnet_strength is not None else config.controlnet_strength
         controlnet_sample = self.controlnet_blocks[idx](hidden_states)
-        scaled_controlnet_example = controlnet_sample * config.controlnet_strength
+        scaled_controlnet_example = controlnet_sample * strength
         controlnet_block_samples.append(scaled_controlnet_example)
 
         return encoder_hidden_states, hidden_states
