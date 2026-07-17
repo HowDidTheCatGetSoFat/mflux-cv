@@ -242,6 +242,15 @@ class Flux1Controlnet(nn.Module):
         )
 
     def save_model(self, base_path: str) -> None:
+        # The saved layout holds exactly one controlnet (the saver reads the singular
+        # transformer_controlnet attribute), so a stack cannot be represented. Say so instead of
+        # silently writing only the first net.
+        if len(self.transformer_controlnets) > 1:
+            raise ValueError(
+                f"Cannot save a model with {len(self.transformer_controlnets)} stacked controlnets: "
+                f"the saved layout holds a single controlnet, so the others would be dropped. "
+                f"Load one controlnet to save."
+            )
         ModelSaver.save_model(
             model=self,
             bits=self.bits,

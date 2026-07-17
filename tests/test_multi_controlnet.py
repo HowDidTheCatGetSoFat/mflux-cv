@@ -157,6 +157,30 @@ def test_mismatched_strength_count_is_rejected():
         ])
 
 
+def test_controlnet_path_without_a_control_image_is_rejected():
+    # --controlnet-image-path is not required on every controlnet CLI, so a checkpoint with no
+    # control image must be caught here rather than at load time.
+    parser = CommandLineParser(description="controlnet")
+    parser.add_general_arguments()
+    parser.add_model_arguments(require_model_arg=False)
+    parser.add_lora_arguments()
+    parser.add_image_generator_arguments(supports_metadata_config=False)
+    parser.add_controlnet_arguments(mode="canny")  # require_image defaults to False here
+    parser.add_output_arguments()
+    with patch("sys.argv", ["prog", "--prompt", "x", "--controlnet-path", "org/a"]):
+        with pytest.raises(SystemExit):
+            parser.parse_args()
+
+
+def test_saving_a_stack_is_rejected_rather_than_dropping_nets():
+    # The saved layout holds a single controlnet, so saving a stack must not silently write only
+    # the first net.
+    flux = Flux1Controlnet.__new__(Flux1Controlnet)
+    flux.transformer_controlnets = [object(), object()]
+    with pytest.raises(ValueError, match="stacked controlnets"):
+        flux.save_model("/tmp/whatever")
+
+
 def test_stacking_without_controlnet_paths_is_rejected():
     # The model config names a single controlnet, so several control images cannot be satisfied.
     # This must fail during parsing, not after the model has been loaded.
