@@ -141,9 +141,9 @@ class Flux1Controlnet(nn.Module):
         # 1. Encode each controlnet reference image, deciding the Canny preprocessing per net from
         #    that net's own checkpoint name. A stack of depth + canny therefore preprocesses only the
         #    canny image, and a config-driven canny run behaves exactly as before.
-        conditions, canny_images = [], []
+        conditions, processed_images = [], []
         for path, source in zip(image_paths, self.controlnet_sources):
-            condition, canny_image = ControlnetUtil.encode_image(
+            condition, processed_image = ControlnetUtil.encode_image(
                 vae=self.vae,
                 width=config.width,
                 height=config.height,
@@ -151,8 +151,9 @@ class Flux1Controlnet(nn.Module):
                 is_canny=Flux1Controlnet._source_is_canny(source),
             )
             conditions.append(condition)
-            canny_images.append(canny_image)
-        canny_image = canny_images[0]
+            processed_images.append(processed_image)
+        # the callback shows one reference image; the first net's is the representative one
+        canny_image = processed_images[0]
 
         # 2. Create the initial latents
         latents = FluxLatentCreator.create_noise(
