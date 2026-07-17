@@ -26,7 +26,7 @@ goes to their authors.
   checkpoint, control image and strength (for example depth + canny). Repeat `--controlnet-path`
   and `--controlnet-image-path` (and optionally `--controlnet-strength`, or give one value for all):
 
-  ```
+  ```bash
   mflux-generate-controlnet -m dev --prompt "a modern living room" \
       --controlnet-path org/depth --controlnet-image-path depth.png --controlnet-strength 0.7 \
       --controlnet-path org/canny --controlnet-image-path canny.png --controlnet-strength 0.4

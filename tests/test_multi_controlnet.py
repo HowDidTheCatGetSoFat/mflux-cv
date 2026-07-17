@@ -6,6 +6,7 @@ transformer's blocks with the same rule the transformer itself applies, then sum
 pin that the expansion matches the transformer exactly (single-net behavior is unchanged) and that
 heterogeneous nets sum correctly. No weights are loaded.
 """
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import mlx.core as mx
@@ -161,3 +162,41 @@ def test_mismatched_controlnet_path_count_is_rejected():
             "--controlnet-image-path", "a.png", "--controlnet-image-path", "b.png",
             "--controlnet-path", "org/only-one",
         ])
+
+
+def test_one_image_with_several_strengths_is_rejected():
+    # The counts must be checked before a single image collapses to a scalar, or this invalid
+    # combination would sail through parsing and only fail once the model is being loaded.
+    with pytest.raises(SystemExit):
+        _parse([
+            "--prompt", "x", "--controlnet-image-path", "a.png",
+            "--controlnet-strength", "0.5", "--controlnet-strength", "0.6",
+        ])
+
+
+def test_one_image_with_several_controlnet_paths_is_rejected():
+    with pytest.raises(SystemExit):
+        _parse([
+            "--prompt", "x", "--controlnet-image-path", "a.png",
+            "--controlnet-path", "org/a", "--controlnet-path", "org/b",
+        ])
+
+
+# --------------------------------------------------------------------------- #
+# checkpoint sources: --controlnet-path takes a local directory or an HF repo
+# --------------------------------------------------------------------------- #
+def test_load_single_resolves_a_local_directory_without_hitting_huggingface(tmp_path):
+    # A local --controlnet-path must not be handed to snapshot_download as a repo id.
+    from mflux.models.common.weights.loading.weight_loader import WeightLoader
+
+    local_dir = tmp_path / "my-controlnet"
+    local_dir.mkdir()
+    (local_dir / "diffusion_pytorch_model.safetensors").write_bytes(b"")
+
+    component = SimpleNamespace(name="transformer_controlnet")
+    with patch("mflux.models.common.weights.loading.weight_loader.snapshot_download") as dl:
+        with patch.object(WeightLoader, "_load_component", return_value=({}, None, None)) as load_component:
+            WeightLoader.load_single(component=component, repo_id=str(local_dir))
+
+    dl.assert_not_called()
+    assert load_component.call_args.args[0] == local_dir

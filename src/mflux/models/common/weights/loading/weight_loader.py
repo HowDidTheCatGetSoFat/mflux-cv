@@ -31,7 +31,10 @@ class WeightLoader:
         repo_id: str,
         file_pattern: str = "*.safetensors",
     ) -> LoadedWeights:
-        root_path = Path(snapshot_download(repo_id=repo_id, allow_patterns=[file_pattern, "config.json"]))
+        # repo_id may be a HuggingFace repo or a local directory (--controlnet-path accepts both);
+        # PathResolution handles each, where a bare snapshot_download would treat a local path as a
+        # repo id. HF repos keep the same allow_patterns, so their download behavior is unchanged.
+        root_path = PathResolution.resolve(path=repo_id, patterns=[file_pattern, "config.json"])
         weights, q_level, version = WeightLoader._load_component(root_path, component)
         return LoadedWeights(
             components={component.name: weights},
