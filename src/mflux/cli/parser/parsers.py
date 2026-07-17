@@ -354,6 +354,13 @@ class CommandLineParser(argparse.ArgumentParser):
                 f"Stacking controlnets needs one --controlnet-path checkpoint per control image; "
                 f"the model config only provides a single controlnet."
             )
+        if cn_paths and not num_images:
+            # --controlnet-image-path is not required on every controlnet CLI, so a checkpoint with
+            # no control image at all would otherwise reach the loader and fail there.
+            self.error(
+                f"--controlnet-path was given {len(cn_paths)} time(s) but no --controlnet-image-path. "
+                f"Every controlnet needs its own control image."
+            )
         if cn_paths and num_images and len(cn_paths) != num_images:
             self.error(
                 f"--controlnet-path was given {len(cn_paths)} time(s) but --controlnet-image-path "
