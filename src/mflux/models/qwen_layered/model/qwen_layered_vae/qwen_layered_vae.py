@@ -111,3 +111,17 @@ class QwenLayeredVAE(nn.Module):
         rgba_image = mx.concatenate([image, alpha_channel], axis=1)
         
         return self.encode(rgba_image)
+
+
+# Materialize the latent constants at import time.
+#
+# `mx.array([...]).reshape(...)` records a Reshape primitive instead of evaluating, so these stay
+# lazy. MLX >= 0.31 keeps a Metal command encoder per THREAD and pins an unevaluated array to the
+# stream of the thread that recorded it, so evaluating one from another thread raises
+# "There is no Stream(gpu, N) in current thread" (ml-explore/mlx#3529, open as of 0.32).
+#
+# That bites any host that imports mflux on one thread and generates on another. ComfyUI is the
+# concrete case: it imports custom nodes on the main thread but runs every node on a single worker
+# thread, so the first eval downstream of this VAE's encode/decode died. Evaluating here, on the
+# importing thread, strips the stream affinity and makes the constants usable from any thread.
+mx.eval(QwenLayeredVAE.LATENTS_MEAN, QwenLayeredVAE.LATENTS_STD)
