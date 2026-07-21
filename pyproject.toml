@@ -13,8 +13,8 @@ source-exclude = [
 ]
 
 [project]
-name = "mflux"
-version = "0.18.25+cv"
+name = "mflux-cv"
+version = "0.18.25"
 description = "MLX native implementations of state-of-the-art generative image models."
 readme = "README.md"
 keywords = [
