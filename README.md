@@ -9,10 +9,22 @@ so this is a direct replacement in ComfyUI, image-studio, or any existing setup.
 **Install**
 
 ```bash
-pip install git+https://github.com/HowDidTheCatGetSoFat/mflux-cv.git@v.0.18.15-CV
+pip install mflux-cv
 ```
 
-or download a wheel from [Releases](https://github.com/HowDidTheCatGetSoFat/mflux-cv/releases).
+To track a specific tag instead, or to pick up work that has not been released yet:
+
+```bash
+pip install git+https://github.com/HowDidTheCatGetSoFat/mflux-cv.git@v.0.18.25-CV
+```
+
+Wheels are also attached to every [Release](https://github.com/HowDidTheCatGetSoFat/mflux-cv/releases).
+
+> **Install this or upstream `mflux`, never both.** The distribution is named `mflux-cv` so it can
+> live on PyPI alongside upstream, though both provide the same `mflux` import package. With both
+> installed, pip raises no error while the two overwrite each other's files, and uninstalling either
+> one leaves the other broken. Run `pip uninstall mflux` before installing this, and
+> `pip uninstall mflux-cv` before going back.
 
 **Relationship to upstream:** kept rebased on `filipstrand/mflux` so changes merge back cleanly. Every
 upstream commit is included and nothing is removed. Credit for the base project and every pulled PR
