@@ -2,8 +2,8 @@
 
 A drop-in community build of [mflux](https://github.com/filipstrand/mflux) by Filip Strand (MIT). It
 stays current with upstream `main` and adds a curated set of fixes, training features, and useful
-community PRs, with prebuilt wheels on GitHub Releases so improvements stay available to everyone even
-when upstream maintenance is slow. The Python package is still `mflux` and every CLI keeps its name,
+community PRs, with prebuilt wheels on GitHub Releases so improvements are easy to pick up between
+upstream releases. The Python package is still `mflux` and every CLI keeps its name,
 so this is a direct replacement in ComfyUI, image-studio, or any existing setup.
 
 **Install**
