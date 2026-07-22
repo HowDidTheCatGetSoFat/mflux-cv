@@ -8,7 +8,7 @@ from pathlib import Path
 class ControlType(str, Enum):
     pose = "pose"
     canny = "canny"
-    head = "head"
+    hed = "hed"
     depth = "depth"
     mlsd = "mlsd"
 

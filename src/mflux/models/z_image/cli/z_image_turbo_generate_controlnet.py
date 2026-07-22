@@ -46,14 +46,20 @@ def main():
     parser.add_image_generator_arguments(supports_metadata_config=False)
     parser.add_union_controlnet_arguments(require_controls=True)
     parser.add_output_arguments()
+    # Default to the Union ControlNet model so step-count normalization resolves to its 8 steps
+    # instead of the generic fallback when --model is omitted.
+    parser.set_defaults(model="z-image-controlnet")
     args = parser.parse_args()
 
-    model_config = None
-    if args.model is not None:
-        model_config = ConfigResolution.resolve(args.model, args.base_model)
+    model_config = ConfigResolution.resolve(args.model, args.base_model)
+    if not model_config.controlnet_model:
+        parser.error(
+            f"--model {args.model!r} is not a Union ControlNet model. "
+            f"Use z-image-controlnet (the default) or a repo/path carrying a Union ControlNet checkpoint."
+        )
 
     model = ZImageTurboControlnet(
-        model_config=model_config or ModelConfig.z_image_turbo_controlnet_union_2_1(),
+        model_config=model_config,
         quantize=args.quantize,
         model_path=args.model_path,
         lora_paths=args.lora_paths,

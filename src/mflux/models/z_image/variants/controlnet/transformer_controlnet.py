@@ -61,14 +61,18 @@ class ZImageControlNetConfig:
         except (OSError, ValueError, RuntimeError):
             return ZImageControlNetConfig.defaults_union_2_1()
 
+        # Fall back to the documented-correct Union 2.1 values (strided placement, control_in_dim 33)
+        # for any key the config.json omits, rather than to plausible-but-wrong literals.
+        defaults = ZImageControlNetConfig.defaults_union_2_1()
+
         def _get_list(key: str, default: list[int]) -> list[int]:
             val = cfg.get(key, None)
             return list(val) if isinstance(val, list) and len(val) > 0 else default
 
         return ZImageControlNetConfig(
-            control_layers_places=_get_list("control_layers_places", list(range(15))),
-            control_refiner_layers_places=_get_list("control_refiner_layers_places", list(range(2))),
-            control_in_dim=int(cfg.get("control_in_dim", 16)),
+            control_layers_places=_get_list("control_layers_places", defaults.control_layers_places),
+            control_refiner_layers_places=_get_list("control_refiner_layers_places", defaults.control_refiner_layers_places),
+            control_in_dim=int(cfg.get("control_in_dim", defaults.control_in_dim)),
             add_control_noise_refiner=cfg.get("add_control_noise_refiner", "control_noise_refiner"),
             patch_size=int(cfg.get("all_patch_size", [2])[0] if isinstance(cfg.get("all_patch_size"), list) else 2),
             f_patch_size=int(
