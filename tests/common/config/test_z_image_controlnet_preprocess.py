@@ -19,10 +19,14 @@ def test_canny_and_mlsd_produce_a_hint_not_the_original():
     canny = ZImageControlnetUtil._preprocess(img, ControlType.canny)
     mlsd = ZImageControlnetUtil._preprocess(img, ControlType.mlsd)
     for hint in (canny, mlsd):
+        arr = np.array(hint)
         assert hint.size == img.size
         assert hint.mode == "RGB"
         # a real hint differs from the input photo
-        assert np.array(hint).tobytes() != np.array(img).tobytes()
+        assert arr.tobytes() != np.array(img).tobytes()
+        # and actually contains detected strokes: an all-black output (detector disabled) must fail
+        assert arr.max() == 255
+        assert (arr == 255).any()
     # the mlsd hint is line strokes on black, so most of it is black
     assert (np.array(mlsd) == 0).mean() > 0.5
 
