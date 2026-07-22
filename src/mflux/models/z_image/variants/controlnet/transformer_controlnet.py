@@ -71,8 +71,13 @@ class ZImageControlNetConfig:
             return defaults
 
         def _get_list(key: str, default: list[int]) -> list[int]:
+            # Placement entries index base transformer blocks, so a list with any non-int entry
+            # (or an empty list) falls back to the default rather than producing residual keys that
+            # silently never match a block index.
             val = cfg.get(key, None)
-            return list(val) if isinstance(val, list) and len(val) > 0 else default
+            if isinstance(val, list) and len(val) > 0 and all(isinstance(i, int) for i in val):
+                return list(val)
+            return default
 
         try:
             return ZImageControlNetConfig(
