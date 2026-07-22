@@ -4,7 +4,6 @@ from pathlib import Path
 
 from mflux.callbacks.callback_manager import CallbackManager
 from mflux.cli.parser.parsers import CommandLineParser
-from mflux.models.common.config.model_config import ModelConfig
 from mflux.models.common.resolution.config_resolution import ConfigResolution
 from mflux.models.z_image.latent_creator import ZImageLatentCreator
 from mflux.models.z_image.variants.controlnet.control_types import ControlSpec, ControlType

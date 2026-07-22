@@ -65,25 +65,33 @@ class ZImageControlNetConfig:
         # for any key the config.json omits, rather than to plausible-but-wrong literals.
         defaults = ZImageControlNetConfig.defaults_union_2_1()
 
+        # A non-object root, or a malformed value (e.g. control_in_dim: "invalid"), must fall back to
+        # the defaults rather than crash model initialization, so the whole read is guarded too.
+        if not isinstance(cfg, dict):
+            return defaults
+
         def _get_list(key: str, default: list[int]) -> list[int]:
             val = cfg.get(key, None)
             return list(val) if isinstance(val, list) and len(val) > 0 else default
 
-        return ZImageControlNetConfig(
-            control_layers_places=_get_list("control_layers_places", defaults.control_layers_places),
-            control_refiner_layers_places=_get_list("control_refiner_layers_places", defaults.control_refiner_layers_places),
-            control_in_dim=int(cfg.get("control_in_dim", defaults.control_in_dim)),
-            add_control_noise_refiner=cfg.get("add_control_noise_refiner", "control_noise_refiner"),
-            patch_size=int(cfg.get("all_patch_size", [2])[0] if isinstance(cfg.get("all_patch_size"), list) else 2),
-            f_patch_size=int(
-                cfg.get("all_f_patch_size", [1])[0] if isinstance(cfg.get("all_f_patch_size"), list) else 1
-            ),
-            dim=int(cfg.get("dim", 3840)),
-            n_refiner_layers=int(cfg.get("n_refiner_layers", 2)),
-            n_heads=int(cfg.get("n_heads", 30)),
-            norm_eps=float(cfg.get("norm_eps", 1e-5)),
-            qk_norm=bool(cfg.get("qk_norm", True)),
-        )
+        try:
+            return ZImageControlNetConfig(
+                control_layers_places=_get_list("control_layers_places", defaults.control_layers_places),
+                control_refiner_layers_places=_get_list("control_refiner_layers_places", defaults.control_refiner_layers_places),
+                control_in_dim=int(cfg.get("control_in_dim", defaults.control_in_dim)),
+                add_control_noise_refiner=cfg.get("add_control_noise_refiner", "control_noise_refiner"),
+                patch_size=int(cfg.get("all_patch_size", [2])[0] if isinstance(cfg.get("all_patch_size"), list) else 2),
+                f_patch_size=int(
+                    cfg.get("all_f_patch_size", [1])[0] if isinstance(cfg.get("all_f_patch_size"), list) else 1
+                ),
+                dim=int(cfg.get("dim", 3840)),
+                n_refiner_layers=int(cfg.get("n_refiner_layers", 2)),
+                n_heads=int(cfg.get("n_heads", 30)),
+                norm_eps=float(cfg.get("norm_eps", 1e-5)),
+                qk_norm=bool(cfg.get("qk_norm", True)),
+            )
+        except (TypeError, ValueError):
+            return defaults
 
 
 class ZImageControlTransformerBlock(nn.Module):
