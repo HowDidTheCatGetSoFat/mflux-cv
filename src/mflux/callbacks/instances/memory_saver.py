@@ -37,6 +37,7 @@ class MemorySaver(BeforeLoopCallback, InLoopCallback, AfterLoopCallback):
         config: Config,
         canny_image: PIL.Image.Image | None = None,
         depth_image: PIL.Image.Image | None = None,
+        control_images: list[PIL.Image.Image] | None = None,
     ) -> None:
         self.peak_memory = mx.get_peak_memory()
         # Only evict when safe: single-seed run, or embeddings are cached in prompt_cache
