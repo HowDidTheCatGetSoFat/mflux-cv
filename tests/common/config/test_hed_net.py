@@ -45,4 +45,6 @@ def test_fuse_side_outputs_gives_an_rgb_edge_at_the_requested_size():
     assert edge.size == (32, 24)
     assert edge.mode == "RGB"
     arr = np.array(edge)
-    assert arr.min() < 64 and arr.max() > 192  # sigmoid spread, not a flat image
+    # sigmoid spread, not a flat image
+    assert arr.min() < 64
+    assert arr.max() > 192
