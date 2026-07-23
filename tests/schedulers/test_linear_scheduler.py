@@ -1,4 +1,6 @@
+import copy
 import io
+import math
 
 import mlx.core as mx
 import numpy as np
@@ -8,6 +10,7 @@ from mflux.models.common.config.config import Config
 from mflux.models.common.config.model_config import ModelConfig
 from mflux.models.common.schedulers import try_import_external_scheduler
 from mflux.models.common.schedulers.linear_scheduler import LinearScheduler
+from mflux.models.common.schedulers.mage_flow_scheduler import MageFlowScheduler
 
 
 @pytest.mark.fast
@@ -71,3 +74,42 @@ def test_linear_scheduler_sigmas_property_with_shift(test_config):
     )
     assert mx.allclose(scheduler.sigmas, expected_sigmas_from_mflux_0_9_0)
     assert scheduler.sigmas.shape == (test_config.num_inference_steps + 1,)
+
+
+@pytest.mark.fast
+def test_mage_flow_scheduler_matches_static_shift_six_and_fp32_euler():
+    static_mu = math.log(6.0)
+    model_config = copy.deepcopy(ModelConfig.dev())
+    model_config.sigma_base_shift = static_mu
+    model_config.sigma_max_shift = static_mu
+    model_config.requires_sigma_shift = True
+    config = Config(
+        model_config=model_config,
+        num_inference_steps=4,
+        height=512,
+        width=512,
+        scheduler="mage_flow",
+    )
+    scheduler = config.scheduler
+
+    assert isinstance(scheduler, MageFlowScheduler)
+    np.testing.assert_allclose(
+        np.asarray(scheduler.sigmas),
+        np.array([1.0, 0.9473684, 0.8571429, 0.6666667, 0.0], dtype=np.float32),
+        rtol=1e-6,
+        atol=1e-6,
+    )
+
+    latents = mx.array([1.0, -2.0], dtype=mx.bfloat16)
+    noise = mx.array([0.125, -0.375], dtype=mx.bfloat16)
+    stepped = scheduler.step(noise=noise, timestep=3, latents=latents)
+    expected = (
+        latents.astype(mx.float32) + (scheduler.sigmas[4] - scheduler.sigmas[3]) * noise.astype(mx.float32)
+    ).astype(mx.bfloat16)
+    mx.eval(stepped)
+
+    assert stepped.dtype == mx.bfloat16
+    np.testing.assert_array_equal(
+        np.asarray(stepped.astype(mx.float32)),
+        np.asarray(expected.astype(mx.float32)),
+    )

@@ -1,3 +1,4 @@
+from argparse import Namespace
 from unittest.mock import patch
 
 import pytest
@@ -70,6 +71,17 @@ def test_call_before_loop_evicts_text_encoder_for_multi_seed_with_cached_prompt(
     saver.call_before_loop(seed=2, prompt="a cat", latents=None, config=_config())
 
     assert model.text_encoder is None
+
+
+@pytest.mark.fast
+def test_call_before_loop_keeps_text_encoder_for_dynamic_multi_seed_prompt_file():
+    model = _EncoderModel(prompt_cache={"first prompt": object()})
+    args = Namespace(prompt_file="live-prompt.txt")
+    saver = MemorySaver(model=model, cache_limit_bytes=None, args=args, num_seeds=3)
+
+    saver.call_before_loop(seed=1, prompt="first prompt", latents=None, config=_config())
+
+    assert model.text_encoder is not None
 
 
 @pytest.mark.fast

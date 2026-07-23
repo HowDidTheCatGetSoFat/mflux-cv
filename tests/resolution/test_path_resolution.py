@@ -1,8 +1,10 @@
+import json
 from unittest.mock import patch
 
 import pytest
 
 from mflux.models.common.resolution.path_resolution import PathResolution
+from mflux.models.mage_flow.weights import MageFlowWeightDefinition
 
 
 class TestPathResolutionNone:
@@ -109,6 +111,111 @@ class TestPathResolutionHuggingFace:
 
         call_kwargs = mock_download.call_args[1]
         assert call_kwargs["allow_patterns"] == ["*.bin", "*.json"]
+
+    @pytest.mark.fast
+    def test_snapshot_with_incomplete_indexed_subdir_is_not_complete(self, tmp_path):
+        snapshot = tmp_path / "snapshot"
+        text_encoder = snapshot / "text_encoder"
+        text_encoder.mkdir(parents=True)
+        (text_encoder / "model-00001-of-00002.safetensors").touch()
+        (text_encoder / "model.safetensors.index.json").write_text(
+            json.dumps(
+                {
+                    "weight_map": {
+                        "layer.0.weight": "model-00001-of-00002.safetensors",
+                        "layer.1.weight": "model-00002-of-00002.safetensors",
+                    }
+                }
+            )
+        )
+
+        assert not PathResolution._is_snapshot_complete(
+            snapshot,
+            {"text_encoder"},
+            ["text_encoder/*.safetensors"],
+        )
+
+        (text_encoder / "model-00002-of-00002.safetensors").touch()
+        assert PathResolution._is_snapshot_complete(
+            snapshot,
+            {"text_encoder"},
+            ["text_encoder/*.safetensors"],
+        )
+
+    @pytest.mark.fast
+    def test_interrupted_mage_snapshot_missing_configs_is_not_complete(self, tmp_path):
+        snapshot = tmp_path / "snapshot"
+        for subdir in ("vae", "transformer", "text_encoder"):
+            component = snapshot / subdir
+            component.mkdir(parents=True)
+            (component / "partial.safetensors").touch()
+
+        patterns = MageFlowWeightDefinition.get_download_patterns()
+        groups = MageFlowWeightDefinition.get_required_download_pattern_groups()
+        required_subdirs = PathResolution._get_required_subdirs_with_safetensors(patterns)
+
+        assert required_subdirs == {"vae", "transformer", "text_encoder"}
+        assert not PathResolution._is_snapshot_complete(snapshot, required_subdirs, patterns, groups)
+
+    @pytest.mark.fast
+    def test_native_mflux_mage_snapshot_uses_alternative_complete_manifest(self, tmp_path):
+        snapshot = tmp_path / "snapshot"
+        for subdir in ("vae", "transformer", "text_encoder"):
+            component = snapshot / subdir
+            component.mkdir(parents=True)
+            (component / "0.safetensors").touch()
+            (component / "model.safetensors.index.json").write_text(
+                json.dumps({"weight_map": {f"{subdir}.weight": "0.safetensors"}})
+            )
+        (snapshot / "text_encoder" / "tokenizer.json").touch()
+        (snapshot / "text_encoder" / "tokenizer_config.json").touch()
+
+        patterns = MageFlowWeightDefinition.get_download_patterns()
+        groups = MageFlowWeightDefinition.get_required_download_pattern_groups()
+        required_subdirs = PathResolution._get_required_subdirs_with_safetensors(patterns)
+
+        assert not PathResolution._is_snapshot_complete(snapshot, required_subdirs, patterns, groups)
+
+        (snapshot / "text_encoder" / "chat_template.jinja").touch()
+        assert PathResolution._is_snapshot_complete(snapshot, required_subdirs, patterns, groups)
+
+    @pytest.mark.fast
+    def test_official_mage_snapshot_uses_official_complete_manifest(self, tmp_path):
+        snapshot = tmp_path / "snapshot"
+        required_files = [
+            "model_index.json",
+            "scheduler/scheduler_config.json",
+            "vae/diffusion_pytorch_model.safetensors",
+            "vae/config.json",
+            "transformer/diffusion_pytorch_model.safetensors",
+            "transformer/config.json",
+            "text_encoder/model-00001-of-00001.safetensors",
+            "text_encoder/config.json",
+            "text_encoder/preprocessor_config.json",
+            "text_encoder/tokenizer.json",
+            "text_encoder/tokenizer_config.json",
+            "text_encoder/vocab.json",
+            "text_encoder/merges.txt",
+        ]
+        for relative_path in required_files:
+            path = snapshot / relative_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.touch()
+        (snapshot / "text_encoder" / "model.safetensors.index.json").write_text(
+            json.dumps(
+                {
+                    "weight_map": {
+                        "text.weight": "model-00001-of-00001.safetensors",
+                    }
+                }
+            )
+        )
+
+        patterns = MageFlowWeightDefinition.get_download_patterns()
+        groups = MageFlowWeightDefinition.get_required_download_pattern_groups()
+        required_subdirs = PathResolution._get_required_subdirs_with_safetensors(patterns)
+
+        assert PathResolution._is_snapshot_complete(snapshot, required_subdirs, patterns, groups)
 
 
 class TestPathResolutionError:

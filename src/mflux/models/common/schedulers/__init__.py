@@ -1,10 +1,12 @@
 from .flow_match_euler_discrete_scheduler import FlowMatchEulerDiscreteScheduler
 from .linear_scheduler import LinearScheduler
+from .mage_flow_scheduler import MageFlowScheduler
 from .seedvr2_euler_scheduler import SeedVR2EulerScheduler
 
 __all__ = [
     "LinearScheduler",
     "FlowMatchEulerDiscreteScheduler",
+    "MageFlowScheduler",
     "SeedVR2EulerScheduler",
 ]
 
@@ -23,6 +25,8 @@ SCHEDULER_REGISTRY = {
     "LinearScheduler": LinearScheduler,
     "flow_match_euler_discrete": FlowMatchEulerDiscreteScheduler,
     "FlowMatchEulerDiscreteScheduler": FlowMatchEulerDiscreteScheduler,
+    "mage_flow": MageFlowScheduler,
+    "MageFlowScheduler": MageFlowScheduler,
     "seedvr2_euler": SeedVR2EulerScheduler,
     "SeedVR2EulerScheduler": SeedVR2EulerScheduler,
 }

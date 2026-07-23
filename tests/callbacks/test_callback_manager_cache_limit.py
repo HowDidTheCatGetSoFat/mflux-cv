@@ -5,6 +5,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mflux.callbacks.callback_manager import CallbackManager
+from mflux.callbacks.instances.memory_saver import MemorySaver
+from mflux.callbacks.instances.stepwise_handler import StepwiseHandler
 
 
 @pytest.mark.fast
@@ -55,3 +57,23 @@ def test_register_memory_saver_uses_mlx_cache_limit_for_low_ram_mode():
     assert kwargs["num_seeds"] == 2
     assert kwargs["keep_transformer"] is True
     model.callbacks.register.assert_called_once_with(mocked_memory_saver)
+
+
+@pytest.mark.fast
+def test_callback_manager_registers_memory_saver_before_stepwise_decoder():
+    args = Namespace(
+        battery_percentage_stop_limit=20,
+        low_ram=False,
+        mlx_cache_limit_gb=None,
+        seed=[42],
+        prompt_file=None,
+        stepwise_image_output_dir="steps",
+    )
+    model = SimpleNamespace(callbacks=MagicMock(), tiling_config=None)
+
+    CallbackManager.register_callbacks(args=args, model=model, latent_creator=object())
+
+    registered = [call.args[0] for call in model.callbacks.register.call_args_list]
+    memory_index = next(index for index, callback in enumerate(registered) if isinstance(callback, MemorySaver))
+    stepwise_index = next(index for index, callback in enumerate(registered) if isinstance(callback, StepwiseHandler))
+    assert memory_index < stepwise_index

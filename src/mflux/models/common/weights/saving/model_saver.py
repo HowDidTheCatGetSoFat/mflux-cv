@@ -9,6 +9,7 @@ from tqdm import tqdm
 from transformers import PreTrainedTokenizer
 
 from mflux.models.common.lora.mapping.lora_saver import LoRASaver
+from mflux.models.common.resolution.config_resolution import ConfigResolution
 from mflux.utils.version_util import VersionUtil
 
 if TYPE_CHECKING:
@@ -19,10 +20,24 @@ class ModelSaver:
     @staticmethod
     def save_model(
         model: Any,
-        bits: int,
+        bits: int | None,
         base_path: str,
         weight_definition: "WeightDefinitionType",
     ) -> None:
+        component_defs = weight_definition.get_components()
+        missing_components = [
+            component.model_attr or component.name
+            for component in component_defs
+            if getattr(model, component.model_attr or component.name, None) is None
+        ]
+        if missing_components:
+            raise ValueError(
+                "Cannot save an incomplete model; required components are unloaded or missing: "
+                f"{missing_components}. Reload the model before saving."
+            )
+
+        ModelSaver._save_model_config(model=model, base_path=base_path)
+
         # Save tokenizers from model.tokenizers dict
         tokenizer_defs = weight_definition.get_tokenizers()
         for t in tokenizer_defs:
@@ -32,7 +47,7 @@ class ModelSaver:
                     ModelSaver._save_tokenizer(base_path, tokenizer_wrapper.tokenizer, t.hf_subdir)
 
         # Save model components with progress bar
-        components = [(c.model_attr or c.name, c.hf_subdir) for c in weight_definition.get_components()]
+        components = [(c.model_attr or c.name, c.hf_subdir) for c in component_defs]
         for attr_name, subdir in tqdm(components, desc="Saving components", unit="component"):
             component = getattr(model, attr_name, None)
             if component is not None:
@@ -43,13 +58,32 @@ class ModelSaver:
                 ModelSaver._save_weights(base_path, bits, component, subdir)
 
     @staticmethod
+    def _save_model_config(model: Any, base_path: str) -> None:
+        model_config = getattr(model, "model_config", None)
+        if model_config is None:
+            return
+
+        base_model = model_config.base_model or model_config.model_name
+        path = Path(base_path)
+        path.mkdir(parents=True, exist_ok=True)
+        with (path / ConfigResolution.SAVED_CONFIG_FILENAME).open("w", encoding="utf-8") as config_file:
+            json.dump(
+                {
+                    "model_name": model_config.model_name,
+                    "base_model": base_model,
+                },
+                config_file,
+                indent=2,
+            )
+
+    @staticmethod
     def _save_tokenizer(base_path: str, tokenizer: PreTrainedTokenizer, subdir: str) -> None:
         path = Path(base_path) / subdir
         path.mkdir(parents=True, exist_ok=True)
         tokenizer.save_pretrained(path)
 
     @staticmethod
-    def _save_weights(base_path: str, bits: int, model: nn.Module, subdir: str) -> None:
+    def _save_weights(base_path: str, bits: int | None, model: nn.Module, subdir: str) -> None:
         path = Path(base_path) / subdir
         path.mkdir(parents=True, exist_ok=True)
         weights = dict(tree_flatten(model.parameters()))

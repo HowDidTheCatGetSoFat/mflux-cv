@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 from mflux.models.common.resolution.config_resolution import ConfigResolution
@@ -160,6 +162,38 @@ class TestConfigResolutionKrea2:
         assert config.model_name == "my-krea2-style-finetune"
         assert config.base_model == "krea/Krea-2-Turbo"
         assert config.max_sequence_length == 1024
+
+
+class TestConfigResolutionMageFlow:
+    @pytest.mark.fast
+    @pytest.mark.parametrize(
+        ("alias", "repository", "supports_guidance"),
+        [
+            ("mage-flow-base", "microsoft/Mage-Flow-Base", True),
+            ("mage-flow", "microsoft/Mage-Flow", True),
+            ("mage-flow-turbo", "microsoft/Mage-Flow-Turbo", False),
+            ("mage-flow-edit-base", "microsoft/Mage-Flow-Edit-Base", True),
+            ("mage-flow-edit", "microsoft/Mage-Flow-Edit", True),
+            ("mage-flow-edit-turbo", "microsoft/Mage-Flow-Edit-Turbo", False),
+        ],
+    )
+    def test_exact_model_family(self, alias: str, repository: str, supports_guidance: bool):
+        config = ConfigResolution.resolve(alias)
+
+        assert config.model_name == repository
+        assert config.max_sequence_length == 2048
+        assert config.supports_guidance is supports_guidance
+        assert config.sigma_base_shift == pytest.approx(math.log(6.0))
+        assert config.sigma_max_shift == pytest.approx(math.log(6.0))
+
+    @pytest.mark.fast
+    def test_custom_checkpoint_preserves_static_shift_and_text_overrides(self):
+        config = ConfigResolution.resolve("organization/mage-flow-edit-turbo-finetune")
+
+        assert config.base_model == "microsoft/Mage-Flow-Edit-Turbo"
+        assert config.sigma_base_shift == pytest.approx(math.log(6.0))
+        assert config.sigma_max_shift == pytest.approx(math.log(6.0))
+        assert config.max_sequence_length == 2048
 
 
 class TestConfigResolutionRules:

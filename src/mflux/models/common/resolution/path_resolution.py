@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from pathlib import Path
@@ -22,14 +23,18 @@ class PathResolution:
     )
 
     @staticmethod
-    def resolve(path: str | None, patterns: list[str] | None = None) -> Path | None:
+    def resolve(
+        path: str | None,
+        patterns: list[str] | None = None,
+        required_pattern_groups: list[list[str]] | None = None,
+    ) -> Path | None:
         if patterns is None:
             patterns = ["*.safetensors"]
 
         for rule in sorted(PathResolution.RULES, key=lambda r: r.priority):
-            if PathResolution._check(rule.check, path, patterns):
+            if PathResolution._check(rule.check, path, patterns, required_pattern_groups):
                 logger.debug(f"Path resolution: '{path}' → rule '{rule.name}' ({rule.action.value})")
-                return PathResolution._execute(rule.action, path, patterns)
+                return PathResolution._execute(rule.action, path, patterns, required_pattern_groups)
 
         raise ValueError(f"No rule matched for path: {path}")
 
@@ -38,7 +43,12 @@ class PathResolution:
         return path is not None and "/" in path and path.count("/") == 1 and not path.startswith(("./", "../", "~/"))
 
     @staticmethod
-    def _check(check: str, path: str | None, patterns: list[str]) -> bool:
+    def _check(
+        check: str,
+        path: str | None,
+        patterns: list[str],
+        required_pattern_groups: list[list[str]] | None = None,
+    ) -> bool:
         if check == "is_none":
             return path is None
         if check == "exists_locally":
@@ -60,7 +70,7 @@ class PathResolution:
             if not PathResolution._is_hf_format(path):
                 return False
             # Check if we have a complete cached snapshot
-            return PathResolution._find_complete_cached_snapshot(path, patterns) is not None
+            return PathResolution._find_complete_cached_snapshot(path, patterns, required_pattern_groups) is not None
         if check == "is_hf_format":
             return PathResolution._is_hf_format(path)
         if check == "always":
@@ -68,12 +78,17 @@ class PathResolution:
         return False
 
     @staticmethod
-    def _execute(action: PathAction, path: str | None, patterns: list[str]) -> Path | None:
+    def _execute(
+        action: PathAction,
+        path: str | None,
+        patterns: list[str],
+        required_pattern_groups: list[list[str]] | None = None,
+    ) -> Path | None:
         if action == PathAction.LOCAL:
             return Path(path).expanduser() if path else None
         if action == PathAction.HUGGINGFACE_CACHED:
             # Find the best complete cached snapshot
-            cached_path = PathResolution._find_complete_cached_snapshot(path, patterns)
+            cached_path = PathResolution._find_complete_cached_snapshot(path, patterns, required_pattern_groups)
             if cached_path:
                 return cached_path
             # Fallback to standard snapshot_download (shouldn't happen if _check passed)
@@ -90,7 +105,11 @@ class PathResolution:
         return None
 
     @staticmethod
-    def _find_complete_cached_snapshot(repo_id: str | None, patterns: list[str]) -> Path | None:
+    def _find_complete_cached_snapshot(
+        repo_id: str | None,
+        patterns: list[str],
+        required_pattern_groups: list[list[str]] | None = None,
+    ) -> Path | None:
         if repo_id is None:
             return None
 
@@ -111,7 +130,12 @@ class PathResolution:
         for snapshot_path in snapshots:
             if not snapshot_path.is_dir():
                 continue
-            if PathResolution._is_snapshot_complete(snapshot_path, required_subdirs, patterns):
+            if PathResolution._is_snapshot_complete(
+                snapshot_path,
+                required_subdirs,
+                patterns,
+                required_pattern_groups,
+            ):
                 logger.debug(f"Found complete cached snapshot: {snapshot_path}")
                 return snapshot_path
 
@@ -134,32 +158,22 @@ class PathResolution:
 
     @staticmethod
     def _is_snapshot_complete(
-        snapshot_path: Path, required_subdirs: set[str], patterns: list[str] | None = None
+        snapshot_path: Path,
+        required_subdirs: set[str],
+        patterns: list[str] | None = None,
+        required_pattern_groups: list[list[str]] | None = None,
     ) -> bool:
+        if required_pattern_groups and not any(
+            all(PathResolution._has_valid_pattern_match(snapshot_path, pattern) for pattern in group)
+            for group in required_pattern_groups
+        ):
+            return False
+
         if not required_subdirs:
-            # No specific subdirs required - check that all patterns are satisfied
             if patterns:
-                for pattern in patterns:
-                    # Check if this specific pattern has any matches
-                    matches = list(snapshot_path.glob(pattern))
-                    if not matches:
-                        return False
-                    # Verify at least one match actually exists (handles broken symlinks)
-                    has_valid_match = False
-                    for match in matches:
-                        if match.is_symlink():
-                            if os.path.exists(match):
-                                has_valid_match = True
-                                break
-                        else:
-                            has_valid_match = True
-                            break
-                    if not has_valid_match:
-                        return False
                 return True
-            else:
-                # Fallback: just check for any safetensors
-                return any(snapshot_path.glob("**/*.safetensors"))
+            # Fallback: just check for any safetensors
+            return any(snapshot_path.glob("**/*.safetensors"))
 
         for subdir in required_subdirs:
             subdir_path = snapshot_path / subdir
@@ -179,5 +193,29 @@ class PathResolution:
                         break
             if not has_safetensors:
                 return False
+            # Indexed checkpoints are only complete when every referenced
+            # shard exists. One cached shard must not make a partial snapshot
+            # look complete and suppress Hugging Face's repair download.
+            for index_path in subdir_path.glob("*.safetensors.index.json"):
+                try:
+                    with index_path.open(encoding="utf-8") as index_file:
+                        index = json.load(index_file)
+                    weight_map = index.get("weight_map")
+                    if not isinstance(weight_map, dict) or not weight_map:
+                        return False
+                    referenced_shards = set(weight_map.values())
+                    if not all(
+                        isinstance(filename, str)
+                        and Path(filename).name == filename
+                        and (subdir_path / filename).is_file()
+                        for filename in referenced_shards
+                    ):
+                        return False
+                except (OSError, TypeError, ValueError, json.JSONDecodeError):  # noqa: PERF203
+                    return False
 
         return True
+
+    @staticmethod
+    def _has_valid_pattern_match(snapshot_path: Path, pattern: str) -> bool:
+        return any(match.is_file() for match in snapshot_path.glob(pattern))

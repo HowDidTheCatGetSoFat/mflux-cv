@@ -8,6 +8,7 @@ from mflux.models.flux2.variants.txt2img.flux2_klein import Flux2Klein
 from mflux.models.ideogram4.variants.txt2img.ideogram4 import Ideogram4
 from mflux.models.ideogram4.weights.ideogram4_weight_definition import Ideogram4WeightDefinition
 from mflux.models.krea2.variants.txt2img.krea2 import Krea2
+from mflux.models.mage_flow import MageFlow, MageFlowEdit
 from mflux.models.qwen.variants.edit.qwen_image_edit import QwenImageEdit
 from mflux.models.qwen.variants.txt2img.qwen_image import QwenImage
 from mflux.models.qwen_layered.variants.i2l.qwen_image_layered import QwenImageLayered
@@ -21,37 +22,58 @@ def main():
     parser.add_lora_arguments()
     args = parser.parse_args()
 
-    # 1. Determine model class based on model name
-    model_name_lower = args.model.lower()
-    base_model_lower = (args.base_model or "").lower()
-    if "boogu" in model_name_lower:
+    # 1. Resolve the family before dispatch. Saved MFLUX directories can have
+    # opaque names and carry their canonical base in mflux_model_config.json.
+    model_config = ModelConfig.from_name(args.model, base_model=args.base_model)
+    family = " ".join(
+        identifier
+        for identifier in (
+            model_config.base_model or model_config.model_name,
+            *model_config.aliases,
+        )
+        if identifier
+    ).lower()
+    is_mage_flow = "mage-flow" in family or "mageflow" in family
+    if "boogu" in family:
         model_class = BooguImage
-    elif "ernie" in model_name_lower:
+    elif "ernie" in family:
         model_class = ErnieImage
-    elif "qwen" in model_name_lower and "layered" in model_name_lower:
+    elif is_mage_flow and "edit" in family:
+        model_class = MageFlowEdit
+    elif is_mage_flow:
+        model_class = MageFlow
+    elif "qwen" in family and "layered" in family:
         model_class = QwenImageLayered
-    elif "qwen" in model_name_lower and "edit" in model_name_lower:
+    elif "qwen" in family and "edit" in family:
         model_class = QwenImageEdit
-    elif "qwen" in model_name_lower:
+    elif "qwen" in family:
         model_class = QwenImage
-    elif "fibo" in model_name_lower:
+    elif "fibo" in family:
         model_class = FIBO
-    elif "z-image-turbo" in model_name_lower or "zimage-turbo" in model_name_lower:
+    elif "z-image-turbo" in family or "zimage-turbo" in family:
         model_class = ZImageTurbo
-    elif "z-image" in model_name_lower or "zimage" in model_name_lower:
+    elif "z-image" in family or "zimage" in family:
         model_class = ZImage
-    elif "flux2" in model_name_lower or "flux.2" in model_name_lower:
+    elif "flux2" in family or "flux.2" in family:
         model_class = Flux2Klein
-    elif "ideogram" in model_name_lower or "ideogram" in base_model_lower:
+    elif "ideogram" in family:
         model_class = Ideogram4
-    elif "krea-2" in model_name_lower or "krea2" in model_name_lower:
+    elif "krea-2" in family or "krea2" in family:
         # "krea-2"/"krea2" only — must not match Flux.1 Krea ("krea-dev"/"dev-krea").
         model_class = Krea2
     else:
         model_class = Flux1
 
     # 2. Load, quantize and save the model
-    if model_class is Ideogram4:
+    if model_class in (MageFlow, MageFlowEdit):
+        if args.lora_paths:
+            parser.error("LoRA adapters are not currently supported when saving Mage Flow models.")
+        model = model_class(
+            quantize=args.quantize,
+            model_path=args.model_path,
+            model_config=model_config,
+        )
+    elif model_class is Ideogram4:
         model_config = Ideogram4WeightDefinition.resolve_inference_config(
             args.model,
             args.base_model,
@@ -66,7 +88,6 @@ def main():
             model_config=model_config,
         )
     else:
-        model_config = ModelConfig.from_name(args.model, base_model=args.base_model)
         model = model_class(
             quantize=args.quantize,
             lora_paths=args.lora_paths,
