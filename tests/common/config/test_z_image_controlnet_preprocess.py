@@ -32,10 +32,9 @@ def test_canny_and_mlsd_produce_a_hint_not_the_original():
 
 
 @pytest.mark.fast
-def test_hed_and_pose_are_pass_through():
-    # These need neural estimators not in the MLX stack; the Union checkpoint takes a pre-made hint,
-    # so preprocessing returns the image unchanged rather than a wrong or crashing result.
+def test_pose_is_pass_through():
+    # Pose needs a detector + keypoint pipeline with no MLX path; the Union checkpoint takes a pre-made
+    # hint, so preprocessing returns the image unchanged rather than a wrong or crashing result.
     img = _photo()
-    for control_type in (ControlType.hed, ControlType.pose):
-        out = ZImageControlnetUtil._preprocess(img, control_type)
-        assert out is img
+    out = ZImageControlnetUtil._preprocess(img, ControlType.pose)
+    assert out is img
