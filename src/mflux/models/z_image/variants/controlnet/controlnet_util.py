@@ -15,9 +15,10 @@ from mflux.utils.image_util import ImageUtil
 
 log = logging.getLogger(__name__)
 
-# DepthPro and HED are separate models; load each once, and only if that control is actually used.
+# DepthPro, HED and OpenPose are separate models; load each once, and only if that control is used.
 _DEPTH_PRO = None
 _HED = None
+_OPENPOSE = None
 
 
 def _get_depth_pro():
@@ -36,6 +37,15 @@ def _get_hed():
 
         _HED = HED()
     return _HED
+
+
+def _get_openpose():
+    global _OPENPOSE
+    if _OPENPOSE is None:
+        from mflux.models.openpose import OpenPoseBody
+
+        _OPENPOSE = OpenPoseBody()
+    return _OPENPOSE
 
 
 @dataclass(frozen=True)
@@ -87,9 +97,9 @@ class ZImageControlnetUtil:
 
     @staticmethod
     def _preprocess(img: PIL.Image.Image, control_type: ControlType) -> PIL.Image.Image:
-        # Union checkpoints accept any modality as an already-preprocessed hint. We compute the hint
-        # for canny, mlsd, depth and hed locally; pose needs a detector + keypoint pipeline that is
-        # not part of the MLX stack, so it stays pass-through (supply a pre-made hint for pose).
+        # Union checkpoints accept any modality as an already-preprocessed hint, and every modality is
+        # now computed locally: canny/mlsd via OpenCV, depth via DepthPro, hed and pose via native-MLX
+        # ports of ControlNetHED and OpenPose.
         if control_type == ControlType.canny:
             # OpenCV Canny expects an 8-bit single-channel image.
             gray_u8 = np.array(img.convert("L"), dtype=np.uint8)
@@ -106,14 +116,9 @@ class ZImageControlnetUtil:
         if control_type == ControlType.hed:
             return _get_hed().edge_map(img)
 
-        # pose: no built-in estimator. Pass the image through so a pre-made hint still works, but warn
-        # loudly, because feeding a raw photo here yields a weak, off-distribution control.
-        log.warning(
-            "No built-in '%s' preprocessing; using the control image as-is. Supply an already-computed "
-            "%s hint (e.g. from controlnet_aux) for good control.",
-            control_type.value,
-            control_type.value,
-        )
+        if control_type == ControlType.pose:
+            return _get_openpose().pose_map(img)
+
         return img
 
     @staticmethod
