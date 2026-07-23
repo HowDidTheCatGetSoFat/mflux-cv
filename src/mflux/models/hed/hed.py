@@ -67,18 +67,31 @@ class HED:
         state = {k: mx.array(v.float().numpy()) for k, v in raw.items()}
         self._net = _HEDNet(state)
 
-    def edge_map(self, image: PIL.Image.Image) -> PIL.Image.Image:
+    def edge_map(self, image: PIL.Image.Image, max_resolution: int = 512) -> PIL.Image.Image:
         rgb = image.convert("RGB")
-        width, height = rgb.size
-        x = mx.array(np.array(rgb, dtype=np.float32)[None])  # 1, H, W, 3 in 0-255
+        out_width, out_height = rgb.size
+
+        # Run the VGG blocks at a bounded resolution (edges are low-frequency, and a render can be far
+        # larger than HED needs), then scale the edge map back to the requested size.
+        scale = min(1.0, max_resolution / max(out_width, out_height))
+        work = rgb if scale == 1.0 else rgb.resize(
+            (max(1, round(out_width * scale)), max(1, round(out_height * scale))), PIL.Image.LANCZOS
+        )
+        work_width, work_height = work.size
+
+        x = mx.array(np.array(work, dtype=np.float32)[None])  # 1, H, W, 3 in 0-255
         projections = self._net(x)
         mx.eval(projections)
 
-        # Resize each side output back to the input resolution and average, then sigmoid.
+        # Resize each side output to the working resolution and average, then sigmoid.
         edges = []
         for p in projections:
             side = np.array(p)[0, :, :, 0]
-            edges.append(np.array(PIL.Image.fromarray(side).resize((width, height), PIL.Image.BILINEAR)))
+            edges.append(np.array(PIL.Image.fromarray(side).resize((work_width, work_height), PIL.Image.BILINEAR)))
         edge = 1.0 / (1.0 + np.exp(-np.mean(np.stack(edges), axis=0)))
         edge_u8 = (edge * 255.0).clip(0, 255).astype(np.uint8)
-        return PIL.Image.fromarray(np.repeat(edge_u8[:, :, None], 3, axis=2))
+
+        edge_img = PIL.Image.fromarray(np.repeat(edge_u8[:, :, None], 3, axis=2))
+        if (work_width, work_height) != (out_width, out_height):
+            edge_img = edge_img.resize((out_width, out_height), PIL.Image.BILINEAR)
+        return edge_img
