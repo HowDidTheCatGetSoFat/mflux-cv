@@ -1,8 +1,11 @@
+from pathlib import Path
+
 import mlx.core as mx
 from mlx.utils import tree_flatten
 
 from mflux.callbacks.callback_registry import CallbackRegistry
 from mflux.models.common.config import ModelConfig
+from mflux.models.common.resolution.path_resolution import PathResolution
 from mflux.models.common.tokenizer import TokenizerLoader
 from mflux.models.common.weights.loading.loaded_weights import LoadedWeights
 from mflux.models.common.weights.loading.weight_applier import WeightApplier
@@ -24,10 +27,11 @@ class MageFlowInitializer:
         model_path: str | None = None,
     ) -> None:
         path = model_path or model_config.model_name
+        root_path = MageFlowInitializer._resolve_model_path(path)
         MageFlowInitializer._init_config(model, model_config)
-        weights = MageFlowInitializer._load_weights(path)
+        weights = MageFlowInitializer._load_weights(root_path)
         MageFlowWeightDefinition.validate_loaded_weights(weights)
-        MageFlowInitializer._init_tokenizers(model, path)
+        MageFlowInitializer._init_tokenizers(model, root_path)
         MageFlowInitializer._init_models(model, model_config)
         MageFlowInitializer._validate_hf_model_coverage(model, weights)
         MageFlowInitializer._apply_weights(model, weights, quantize)
@@ -35,6 +39,18 @@ class MageFlowInitializer:
         del weights
         mx.eval(model)
         mx.clear_cache()
+
+    @staticmethod
+    def _resolve_model_path(path: str) -> Path:
+        # Resolve once so weights and tokenizer share the same HF snapshot revision.
+        root_path = PathResolution.resolve(
+            path=path,
+            patterns=MageFlowWeightDefinition.get_download_patterns(),
+            required_pattern_groups=MageFlowWeightDefinition.get_required_download_pattern_groups(),
+        )
+        if root_path is None:
+            raise ValueError(f"No model path resolved for {path!r}")
+        return root_path
 
     @staticmethod
     def _init_config(model, model_config: ModelConfig) -> None:
@@ -47,17 +63,17 @@ class MageFlowInitializer:
         model.lora_scales = None
 
     @staticmethod
-    def _load_weights(model_path: str) -> LoadedWeights:
+    def _load_weights(model_path: Path) -> LoadedWeights:
         return WeightLoader.load(
             weight_definition=MageFlowWeightDefinition,
-            model_path=model_path,
+            model_path=str(model_path),
         )
 
     @staticmethod
-    def _init_tokenizers(model, model_path: str) -> None:
+    def _init_tokenizers(model, model_path: Path) -> None:
         model.tokenizers = TokenizerLoader.load_all(
             definitions=MageFlowWeightDefinition.get_tokenizers(),
-            model_path=model_path,
+            model_path=str(model_path),
         )
 
     @staticmethod
