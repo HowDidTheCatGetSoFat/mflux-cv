@@ -56,6 +56,8 @@ def normalize_image_dimension(size: int) -> int:
 def resolve_seed(seed: int) -> int:
     """Resolve Mage Flow's sentinel seed exactly once per sample."""
 
+    if seed < -1:
+        raise ValueError("seed must be >= -1 (-1 selects a random seed)")
     return random.randint(0, 2**32 - 1) if seed == -1 else seed
 
 

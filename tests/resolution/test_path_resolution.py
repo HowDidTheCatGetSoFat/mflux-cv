@@ -143,6 +143,39 @@ class TestPathResolutionHuggingFace:
         )
 
     @pytest.mark.fast
+    def test_empty_root_level_snapshot_is_not_complete(self, tmp_path):
+        snapshot = tmp_path / "snapshot"
+        snapshot.mkdir()
+
+        assert not PathResolution._is_snapshot_complete(
+            snapshot,
+            set(),
+            ["*.safetensors"],
+        )
+
+        (snapshot / "weights.safetensors").touch()
+        assert PathResolution._is_snapshot_complete(
+            snapshot,
+            set(),
+            ["*.safetensors"],
+        )
+
+    @pytest.mark.fast
+    def test_partial_root_level_named_files_are_not_complete(self, tmp_path):
+        snapshot = tmp_path / "snapshot"
+        snapshot.mkdir()
+        (snapshot / "seedvr2_ema_3b_fp16.safetensors").touch()
+        patterns = [
+            "seedvr2_ema_3b_fp16.safetensors",
+            "seedvr2_ema_3b_fp8.safetensors",
+        ]
+
+        assert not PathResolution._is_snapshot_complete(snapshot, set(), patterns)
+
+        (snapshot / "seedvr2_ema_3b_fp8.safetensors").touch()
+        assert PathResolution._is_snapshot_complete(snapshot, set(), patterns)
+
+    @pytest.mark.fast
     def test_interrupted_mage_snapshot_missing_configs_is_not_complete(self, tmp_path):
         snapshot = tmp_path / "snapshot"
         for subdir in ("vae", "transformer", "text_encoder"):

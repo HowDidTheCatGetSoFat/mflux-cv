@@ -85,7 +85,8 @@ class MageFlowEdit(nn.Module):
 
         raw_paths = image_paths if isinstance(image_paths, list) else [image_paths]
         metadata_paths = [path for path in raw_paths if isinstance(path, (str, Path))]
-        primary_path = metadata_paths[0] if metadata_paths else None
+        primary = raw_paths[0] if raw_paths else None
+        primary_path = primary if isinstance(primary, (str, Path)) else None
         config = Config(
             model_config=self.model_config,
             num_inference_steps=num_inference_steps,

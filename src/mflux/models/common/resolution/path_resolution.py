@@ -171,7 +171,10 @@ class PathResolution:
 
         if not required_subdirs:
             if patterns:
-                return True
+                return all(
+                    PathResolution._has_valid_pattern_match(snapshot_path, pattern)
+                    for pattern in patterns
+                )
             # Fallback: just check for any safetensors
             return any(snapshot_path.glob("**/*.safetensors"))
 

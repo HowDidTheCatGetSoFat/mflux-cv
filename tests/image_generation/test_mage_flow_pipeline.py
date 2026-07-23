@@ -19,6 +19,7 @@ from mflux.models.mage_flow.variants.pipeline_helpers import (
     make_velocity_predictor,
     normalize_image_dimension,
     resolve_generation_parameters,
+    resolve_seed,
 )
 from mflux.models.mage_flow.variants.txt2img.mage_flow import MageFlow
 
@@ -181,6 +182,20 @@ def test_mage_flow_turbo_python_api_rejects_cfg():
 @pytest.mark.parametrize("size", [1, 15, 0, -1, -32])
 def test_mage_flow_dimensions_match_official_minimum_floor(size):
     assert normalize_image_dimension(size) == 16
+
+
+def test_mage_flow_resolve_seed_rejects_seeds_below_sentinel():
+    with pytest.raises(ValueError, match="seed must be >= -1"):
+        resolve_seed(-2)
+
+
+def test_mage_flow_resolve_seed_keeps_non_negative_and_randomizes_sentinel(monkeypatch):
+    monkeypatch.setattr(
+        "mflux.models.mage_flow.variants.pipeline_helpers.random.randint",
+        lambda low, high: 123456789,
+    )
+    assert resolve_seed(42) == 42
+    assert resolve_seed(-1) == 123456789
 
 
 def test_mage_flow_initializer_rejects_hf_shape_drift_before_applying_weights():
@@ -379,6 +394,33 @@ def test_mage_flow_edit_pipeline_keeps_reference_clean_and_steps_target_only(mon
     assert generated.image.size == (16, 16)
     assert generated.model_config is ModelConfig.mage_flow_edit_turbo()
     assert generated.image_paths is None
+
+
+def test_mage_flow_edit_metadata_primary_follows_input_order_not_first_path(monkeypatch, tmp_path):
+    import mflux.models.mage_flow.variants.edit.mage_flow_edit as pipeline_module
+
+    original_predictor = make_velocity_predictor
+    monkeypatch.setattr(
+        pipeline_module,
+        "make_velocity_predictor",
+        lambda **kwargs: original_predictor(**kwargs, compile_model=False),
+    )
+    tokenizer = SimpleNamespace(processor=_EditProcessor())
+    model = _bare_pipeline(MageFlowEdit, ModelConfig.mage_flow_edit_turbo(), tokenizer)
+    pil_primary = Image.new("RGB", (16, 16), "white")
+    secondary_path = tmp_path / "scene.png"
+    Image.new("RGB", (16, 16), "black").save(secondary_path)
+
+    generated = model.generate_image(
+        seed=11,
+        prompt="make it black",
+        image_paths=[pil_primary, secondary_path],
+        num_inference_steps=1,
+        guidance=1.0,
+    )
+
+    assert generated.image_path is None
+    assert generated.image_paths == [secondary_path]
 
 
 def test_mage_flow_edit_resolves_random_seed_sentinel_before_vae_sampling(monkeypatch):
