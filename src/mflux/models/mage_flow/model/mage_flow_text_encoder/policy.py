@@ -312,10 +312,33 @@ class MageFlowContentPolicy:
     @staticmethod
     def _parse_verdict(generated: str) -> FilterVerdict:
         parsed = extract_json_object(generated)
-        violates = bool(parsed.get("violates", False))
-        categories = [category for category in (parsed.get("categories", []) or []) if isinstance(category, str)]
-        reason = str(parsed.get("reason", "")).strip()
-        return FilterVerdict(violates, categories, reason, generated)
+        if type(parsed) is not dict:
+            raise ValueError("policy response must be a JSON object")
+
+        expected_keys = {"violates", "categories", "reason"}
+        if parsed.keys() != expected_keys:
+            missing = sorted(expected_keys - parsed.keys())
+            unexpected = sorted(parsed.keys() - expected_keys)
+            raise ValueError(f"invalid policy response fields: missing={missing}, unexpected={unexpected}")
+
+        violates = parsed["violates"]
+        if type(violates) is not bool:
+            raise ValueError("policy response 'violates' must be a boolean")
+
+        categories = parsed["categories"]
+        if type(categories) is not list or any(type(category) is not str for category in categories):
+            raise ValueError("policy response 'categories' must be a list of strings")
+
+        unknown_categories = sorted(set(categories) - CATEGORY_DISPLAY.keys())
+        if unknown_categories:
+            raise ValueError(f"policy response contains unknown categories: {unknown_categories}")
+        if violates != bool(categories):
+            raise ValueError("policy response 'violates' must be true exactly when 'categories' is non-empty")
+
+        reason = parsed["reason"]
+        if type(reason) is not str:
+            raise ValueError("policy response 'reason' must be a string")
+        return FilterVerdict(violates, categories, reason.strip(), generated)
 
 
 def extract_json_object(text: str) -> dict:

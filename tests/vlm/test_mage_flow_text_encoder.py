@@ -15,6 +15,7 @@ from mflux.models.mage_flow.model.mage_flow_text_encoder import (
     build_mrope_position_ids,
 )
 from mflux.models.mage_flow.model.mage_flow_text_encoder.layers import MageFlowQwen3VLRMSNorm
+from mflux.models.mage_flow.variants.conditioning import MageFlowConditioning
 
 
 class _FakeTokenizer:
@@ -203,6 +204,52 @@ def test_mage_flow_prompt_processor_drops_per_sample_then_right_pads() -> None:
     )
     assert capped.shape == (1, 2048, 2)
     assert capped_mask.shape == (1, 2048)
+
+
+def test_mage_flow_edit_conditioning_passes_sequential_positions_for_padded_cfg_batch() -> None:
+    sequence_length = MageFlowPromptProcessor.EDIT_DROP_TOKENS + 3
+
+    class _Processor:
+        def __call__(self, **kwargs):
+            assert len(kwargs["text"]) == 2
+            assert len(kwargs["images"]) == 2
+            return {
+                "input_ids": mx.zeros((2, sequence_length), dtype=mx.int32),
+                "attention_mask": mx.array(
+                    [
+                        [1] * sequence_length,
+                        [1] * (sequence_length - 1) + [0],
+                    ],
+                    dtype=mx.int32,
+                ),
+                "pixel_values": mx.zeros((2, 1)),
+                "image_grid_thw": mx.ones((2, 3), dtype=mx.int32),
+            }
+
+    class _Tokenizer:
+        processor = _Processor()
+
+    class _TextEncoder:
+        def __init__(self):
+            self.position_ids = None
+
+        def __call__(self, **kwargs):
+            self.position_ids = kwargs["position_ids"]
+            return mx.zeros((2, sequence_length, 8))
+
+    text_encoder = _TextEncoder()
+    image = Image.new("RGB", (1, 1))
+    prompt_embeds, prompt_mask = MageFlowConditioning.encode_edit(
+        prompts=["make it blue", ""],
+        images_per_prompt=[[image], [image]],
+        tokenizer=_Tokenizer(),
+        text_encoder=text_encoder,
+    )
+
+    expected = np.broadcast_to(np.arange(sequence_length, dtype=np.int32), (2, sequence_length))
+    np.testing.assert_array_equal(np.asarray(text_encoder.position_ids), expected)
+    assert prompt_embeds.shape == (2, 3, 8)
+    np.testing.assert_array_equal(np.asarray(prompt_mask), np.array([[1, 1, 1], [1, 1, 0]]))
 
 
 def test_mage_flow_qwen3_vl_processor_uses_checkpoint_image_config_and_expands_placeholder() -> None:

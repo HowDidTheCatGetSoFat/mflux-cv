@@ -80,11 +80,17 @@ class MageFlowConditioning:
             max_length=max_input_length,
             return_tensors=None,
         )
+        batch_size, sequence_length = inputs["input_ids"].shape
+        position_ids = mx.broadcast_to(
+            mx.arange(sequence_length, dtype=mx.int32)[None, :],
+            (batch_size, sequence_length),
+        )
         hidden_states = text_encoder(
             input_ids=inputs["input_ids"],
             attention_mask=inputs["attention_mask"],
             pixel_values=inputs["pixel_values"],
             image_grid_thw=inputs["image_grid_thw"],
+            position_ids=position_ids,
         )
         return MageFlowPromptProcessor.process_edit_hidden_states(
             hidden_states,

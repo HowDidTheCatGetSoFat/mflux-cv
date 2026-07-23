@@ -545,6 +545,9 @@ class MageFlowTextEncoder(nn.Module):
         visual_positions = None
         deepstack_visual_embeds = None
         if pixel_values is not None:
+            patch_embed = getattr(self.visual, "patch_embed", None)
+            if patch_embed is not None:
+                pixel_values = pixel_values.astype(patch_embed.proj.weight.dtype)
             image_embeds, deepstack_visual_embeds = self.visual(
                 pixel_values,
                 image_grid_thw,

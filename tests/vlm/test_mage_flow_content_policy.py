@@ -1,5 +1,6 @@
 import mlx.core as mx
 import numpy as np
+import pytest
 from PIL import Image
 
 from mflux.models.mage_flow.model.mage_flow_text_encoder import (
@@ -190,6 +191,54 @@ def test_mage_flow_policy_is_fail_closed_for_malformed_or_failed_generation() ->
     assert failed.violates is True
     assert failed.categories == ["policy"]
     assert failed.reason == "edit filter error (blocked): RuntimeError: decode failed"
+
+
+@pytest.mark.parametrize(
+    ("decoded", "expected_error"),
+    [
+        (
+            '{"categories": ["violence"], "reason": "violent scene"}',
+            "invalid policy response fields",
+        ),
+        (
+            '{"violates": 1, "categories": ["violence"], "reason": "violent scene"}',
+            "'violates' must be a boolean",
+        ),
+        (
+            '{"violates": true, "categories": "violence", "reason": "violent scene"}',
+            "'categories' must be a list of strings",
+        ),
+        (
+            '{"violates": true, "categories": ["unknown"], "reason": "unknown category"}',
+            "unknown categories",
+        ),
+        (
+            '{"violates": true, "categories": ["violence"], "reason": 7}',
+            "'reason' must be a string",
+        ),
+        (
+            '{"violates": false, "categories": ["violence"], "reason": "inconsistent"}',
+            "'violates' must be true exactly when 'categories' is non-empty",
+        ),
+        (
+            '{"violates": true, "categories": [], "reason": "inconsistent"}',
+            "'violates' must be true exactly when 'categories' is non-empty",
+        ),
+    ],
+)
+def test_mage_flow_text_policy_is_fail_closed_for_invalid_schema(
+    decoded: str,
+    expected_error: str,
+) -> None:
+    verdict = MageFlowContentPolicy.screen_text(
+        text_encoder=_PolicyTextEncoder(),
+        tokenizer=_PolicyTokenizer(decoded),
+        prompt="a cat",
+    )
+
+    assert verdict.violates is True
+    assert verdict.categories == ["policy"]
+    assert expected_error in verdict.reason
 
 
 def test_mage_flow_empty_text_policy_bypasses_generation_and_refusal_is_plain_white() -> None:
