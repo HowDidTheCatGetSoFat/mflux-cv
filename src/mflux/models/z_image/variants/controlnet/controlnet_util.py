@@ -15,8 +15,9 @@ from mflux.utils.image_util import ImageUtil
 
 log = logging.getLogger(__name__)
 
-# DepthPro is a separate ~heavy model; load it once, and only if a depth control is actually used.
+# DepthPro and HED are separate models; load each once, and only if that control is actually used.
 _DEPTH_PRO = None
+_HED = None
 
 
 def _get_depth_pro():
@@ -26,6 +27,15 @@ def _get_depth_pro():
 
         _DEPTH_PRO = DepthPro()
     return _DEPTH_PRO
+
+
+def _get_hed():
+    global _HED
+    if _HED is None:
+        from mflux.models.hed import HED
+
+        _HED = HED()
+    return _HED
 
 
 @dataclass(frozen=True)
@@ -78,8 +88,8 @@ class ZImageControlnetUtil:
     @staticmethod
     def _preprocess(img: PIL.Image.Image, control_type: ControlType) -> PIL.Image.Image:
         # Union checkpoints accept any modality as an already-preprocessed hint. We compute the hint
-        # for canny, mlsd and depth locally; hed and pose need neural estimators that are not part of
-        # the MLX stack, so they stay pass-through (supply a pre-made hint for those).
+        # for canny, mlsd, depth and hed locally; pose needs a detector + keypoint pipeline that is
+        # not part of the MLX stack, so it stays pass-through (supply a pre-made hint for pose).
         if control_type == ControlType.canny:
             # OpenCV Canny expects an 8-bit single-channel image.
             gray_u8 = np.array(img.convert("L"), dtype=np.uint8)
@@ -93,6 +103,17 @@ class ZImageControlnetUtil:
         if control_type == ControlType.depth:
             return ZImageControlnetUtil._depth(img)
 
+        if control_type == ControlType.hed:
+            return _get_hed().edge_map(img)
+
+        # pose: no built-in estimator. Pass the image through so a pre-made hint still works, but warn
+        # loudly, because feeding a raw photo here yields a weak, off-distribution control.
+        log.warning(
+            "No built-in '%s' preprocessing; using the control image as-is. Supply an already-computed "
+            "%s hint (e.g. from controlnet_aux) for good control.",
+            control_type.value,
+            control_type.value,
+        )
         return img
 
     @staticmethod
