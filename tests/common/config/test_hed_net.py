@@ -1,7 +1,8 @@
 import mlx.core as mx
+import numpy as np
 import pytest
 
-from mflux.models.hed.hed import _BLOCKS, _HEDNet
+from mflux.models.hed.hed import HED, _BLOCKS, _HEDNet
 
 
 def _fake_state():
@@ -30,3 +31,18 @@ def test_hed_net_emits_five_downsampled_single_channel_side_outputs():
     expected = [64, 32, 16, 8, 4]
     for p, size in zip(projections, expected):
         assert p.shape == (1, size, size, 1)
+
+
+@pytest.mark.fast
+def test_fuse_side_outputs_gives_an_rgb_edge_at_the_requested_size():
+    # Side outputs at their own resolutions fuse to a single 8-bit RGB edge at the requested size,
+    # with sigmoid applied (values spread across 0..255, not a flat map).
+    projections = [
+        mx.array(np.linspace(-6, 6, 1 * h * w * 1, dtype=np.float32).reshape(1, h, w, 1))
+        for h, w in [(8, 8), (4, 4), (2, 2)]
+    ]
+    edge = HED._fuse_side_outputs(projections, (32, 24))
+    assert edge.size == (32, 24)
+    assert edge.mode == "RGB"
+    arr = np.array(edge)
+    assert arr.min() < 64 and arr.max() > 192  # sigmoid spread, not a flat image
