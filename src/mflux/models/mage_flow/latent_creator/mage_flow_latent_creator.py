@@ -125,7 +125,7 @@ class MageFlowLatentCreator:
         pad, positions = MageFlowLatentCreator._pad_and_positions(count, key)
         target_half = (message[positions] ^ pad).astype(np.float64)
 
-        generator = torch.Generator(device="cpu").manual_seed(int(seed) & 0x7FFFFFFF)
+        generator = torch.Generator(device="cpu").manual_seed(int(seed))
         uniform = torch.rand(count, generator=generator, dtype=torch.float64)
         half = torch.from_numpy(target_half)
         probability = ((half + uniform) / 2.0).clamp(1e-6, 1.0 - 1e-6)

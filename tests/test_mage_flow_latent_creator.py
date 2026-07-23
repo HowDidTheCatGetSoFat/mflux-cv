@@ -39,6 +39,27 @@ def test_mage_flow_gaussian_shading_is_deterministic_and_detectable() -> None:
     assert report["msg_acc"] == 1.0
 
 
+def test_mage_flow_gaussian_shading_keeps_distinct_large_seeds() -> None:
+    first = MageFlowLatentCreator.create_noise(
+        seed=1,
+        height=64,
+        width=64,
+        gaussian_shading=True,
+        gaussian_shading_key=20260720,
+        dtype=mx.float32,
+    )
+    second = MageFlowLatentCreator.create_noise(
+        seed=2147483649,  # 2**31 + 1; formerly collapsed to seed 1 via 31-bit mask
+        height=64,
+        width=64,
+        gaussian_shading=True,
+        gaussian_shading_key=20260720,
+        dtype=mx.float32,
+    )
+
+    assert not bool(mx.all(first == second).item())
+
+
 def test_mage_flow_plain_noise_can_disable_watermark() -> None:
     noise = MageFlowLatentCreator.create_noise(
         seed=9,
