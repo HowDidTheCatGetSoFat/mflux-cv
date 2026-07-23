@@ -101,6 +101,7 @@ class CommandLineParser(argparse.ArgumentParser):
         self.supports_lora = False
         self.require_model_arg = True
         self.require_init_image = False
+        self.require_image_paths = False
         self.defer_step_default = False
 
     def add_general_arguments(self) -> None:
@@ -216,7 +217,9 @@ class CommandLineParser(argparse.ArgumentParser):
         self.add_argument("--gaussian-shading-key", type=str, default=None, help="Key for Mage Flow's Gaussian-Shading watermark. Defaults to MAGEFLOW_GS_KEY, MAGEFLOW_GS_KEY_FILE, or the released model key.")
 
     def add_mage_flow_edit_arguments(self) -> None:
-        self.add_argument("--image-paths", type=Path, nargs="+", required=True, help="Local paths to one or more reference images.")
+        # Required after metadata merge so --config-from-metadata can supply image_paths.
+        self.require_image_paths = True
+        self.add_argument("--image-paths", type=Path, nargs="+", required=False, default=None, help="Local paths to one or more reference images.")
         self.add_argument("--max-size", type=int, default=None, help="Longest output edge. The shorter edge follows the primary reference image's aspect ratio.")
         self.add_mage_flow_arguments()
 
@@ -508,6 +511,13 @@ class CommandLineParser(argparse.ArgumentParser):
             if hasattr(namespace, "image_path") and namespace.image_path is None:
                 namespace.image_path = prior_gen_metadata.get("image_path", None)
 
+            if hasattr(namespace, "image_paths") and namespace.image_paths is None:
+                metadata_image_paths = prior_gen_metadata.get("image_paths", None)
+                if metadata_image_paths:
+                    namespace.image_paths = [Path(path) for path in metadata_image_paths]
+                elif prior_gen_metadata.get("image_path", None) is not None:
+                    namespace.image_paths = [Path(prior_gen_metadata["image_path"])]
+
             if hasattr(namespace, "mask_path") and namespace.mask_path is None:
                 namespace.mask_path = (
                     prior_gen_metadata.get("masked_image_path", None) or prior_gen_metadata.get("mask_path", None)
@@ -541,6 +551,9 @@ class CommandLineParser(argparse.ArgumentParser):
 
         if self.require_init_image and getattr(namespace, "image_path", None) is None:
             self.error("An init image is required. Provide one with --image PATH [STRENGTH] (e.g. --image photo.jpg 0.8).")
+
+        if self.require_image_paths and not getattr(namespace, "image_paths", None):
+            self.error("--image-paths is required, or 'image_paths' must be specified in the metadata config file.")
 
         if self.supports_image_generation and namespace.seed is None and namespace.auto_seeds > 0:
             # choose N unique int seeds in the range of  0 < value < 1 billion

@@ -199,6 +199,80 @@ def test_mage_flow_custom_model_preserves_metadata_steps(tmp_path: Path) -> None
 
 
 @pytest.mark.fast
+def test_mage_flow_edit_restores_image_paths_from_metadata(tmp_path: Path) -> None:
+    metadata_path = tmp_path / "edit.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "model": "mage-flow-edit",
+                "prompt": "make it nocturnal",
+                "image_path": "scene.png",
+                "image_paths": ["scene.png", "object.png"],
+                "seed": 42,
+                "steps": 4,
+            }
+        )
+    )
+    parser = _edit_parser()
+    with patch(
+        "sys.argv",
+        [
+            "mflux-generate-mage-flow-edit",
+            "--config-from-metadata",
+            str(metadata_path),
+        ],
+    ):
+        args = parser.parse_args()
+
+    assert args.prompt == "make it nocturnal"
+    assert args.image_paths == [Path("scene.png"), Path("object.png")]
+    assert args.seed == [42]
+    assert args.steps == 4
+
+
+@pytest.mark.fast
+def test_mage_flow_edit_falls_back_to_singular_image_path_from_metadata(tmp_path: Path) -> None:
+    metadata_path = tmp_path / "edit_singular.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "model": "mage-flow-edit",
+                "prompt": "make it nocturnal",
+                "image_path": "scene.png",
+                "seed": 7,
+            }
+        )
+    )
+    parser = _edit_parser()
+    with patch(
+        "sys.argv",
+        [
+            "mflux-generate-mage-flow-edit",
+            "--config-from-metadata",
+            str(metadata_path),
+        ],
+    ):
+        args = parser.parse_args()
+
+    assert args.image_paths == [Path("scene.png")]
+
+
+@pytest.mark.fast
+def test_mage_flow_edit_requires_image_paths_without_metadata() -> None:
+    parser = _edit_parser()
+    with patch(
+        "sys.argv",
+        [
+            "mflux-generate-mage-flow-edit",
+            "--prompt",
+            "make it nocturnal",
+        ],
+    ):
+        with pytest.raises(SystemExit):
+            parser.parse_args()
+
+
+@pytest.mark.fast
 def test_mage_flow_edit_preserves_automatic_dimensions() -> None:
     parser = _edit_parser()
     with patch(
