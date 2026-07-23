@@ -354,6 +354,10 @@ class ZImageControlNet(nn.Module):
                 for idx, layer_idx in enumerate(self.config.control_refiner_layers_places)
                 if idx < len(hints)
             }
+            # The refiner also transforms the control tokens themselves; carry the refined control
+            # forward into the main control layers (the reference reassigns control_context here).
+            # Without this the main layers see the raw, unrefined embedding and the residuals drift.
+            control_emb = ZImageControlTransformerBlock._unbind0(c)[-1]
 
         # Noise refiner (shared), with optional injected residuals
         for layer_idx, layer in enumerate(self.noise_refiner):
