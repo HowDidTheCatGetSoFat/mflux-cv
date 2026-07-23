@@ -3,10 +3,8 @@
 Ports Hzzone/pytorch-openpose (the body model controlnet_aux uses) to mlx.nn: a VGG-19 backbone feeds a
 two-branch, six-stage network that emits part-affinity fields (PAF, 38ch) and keypoint heatmaps (19ch).
 The network runs in MLX; peak finding, greedy limb assembly and skeleton drawing are numpy/cv2, matching
-the reference. Only weight loading touches torch (a .pth), like DepthPro and the HED preprocessor.
-
-The pretrained body_pose_model weights are CMU OpenPose derived and are NOT commercially licensed; this is a
-fork convenience, and any upstream use must respect that.
+the reference. Only weight loading touches torch (a .pth), like DepthPro and the HED preprocessor. The
+body_pose_model weights are downloaded at runtime from lllyasviel/Annotators, the same source controlnet_aux uses.
 """
 
 from __future__ import annotations
