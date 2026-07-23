@@ -32,6 +32,26 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.26-CV
+
+- **Z-Image Turbo Union ControlNet, native in MLX.** The first Z-Image ControlNet running in MLX, with
+  all five modalities computed locally (no pre-made control image needed):
+
+  ```bash
+  mflux-generate-z-image-controlnet \
+      --control canny:room.png:1.0 --controlnet-strength 0.6 \
+      --prompt "a cozy bedroom, photorealistic" --steps 8 --output out.png
+  ```
+
+  `--control type:path[:strength]` is repeatable to stack controls. Types: `canny`, `mlsd`, `depth`,
+  `hed`, `pose`.
+- Preprocessors: `canny` and `mlsd` via OpenCV, `depth` via the native DepthPro mflux already ships, and
+  native `mlx.nn` ports of `hed` (ControlNetHED) and `pose` (OpenPose body). Only weight loading touches
+  torch; every forward pass is MLX.
+- The controlnet inference is numerically matched to the diffusers `ZImageControlNetModel` (block-by-block
+  residual cosine 1.00000). A correctness fix carries the refined control tokens into the main control
+  layers, which the original port dropped.
+
 ### 0.18.25-CV
 
 - **Multi-ControlNet for FLUX.1.** Several controlnets can now be stacked, each with its own
