@@ -164,7 +164,7 @@ class CommandLineParser(argparse.ArgumentParser):
             self.add_argument("--width", type=int, default=None, help="Image width (Default follows the source image)")
         else:
             self.add_argument("--height", type=int, default=ui_defaults.HEIGHT, help=f"Image height (Default is {ui_defaults.HEIGHT})")
-            self.add_argument("--width", type=int, default=ui_defaults.WIDTH, help=f"Image width (Default is {ui_defaults.HEIGHT})")
+            self.add_argument("--width", type=int, default=ui_defaults.WIDTH, help=f"Image width (Default is {ui_defaults.WIDTH})")
 
         self.add_argument("--steps", type=int, default=None, help="Inference Steps")
         self.add_argument("--guidance", type=float, default=None, help=f"Guidance Scale (Default varies by tool: {ui_defaults.GUIDANCE_SCALE} for most, {ui_defaults.DEFAULT_DEV_FILL_GUIDANCE} for fill tools, {ui_defaults.DEFAULT_DEPTH_GUIDANCE} for depth)")
@@ -650,9 +650,13 @@ class CommandLineParser(argparse.ArgumentParser):
             elif height_explicit and not width_explicit:
                 namespace.width = _ceil16(namespace.height * ratio)
             elif not width_explicit and not height_explicit:
-                h = (target_pixels / ratio) ** 0.5
-                w = h * ratio
-                namespace.width = _ceil16(w)
-                namespace.height = _ceil16(h)
+                # With dimensions_default_to_none (e.g. Mage Flow edit) the unset dimensions are
+                # None so they can follow the reference image. Only derive a fixed aspect size when
+                # the parser has concrete dimension defaults; otherwise leave them for source sizing.
+                if default_w is not None and default_h is not None:
+                    h = (target_pixels / ratio) ** 0.5
+                    w = h * ratio
+                    namespace.width = _ceil16(w)
+                    namespace.height = _ceil16(h)
 
         return namespace

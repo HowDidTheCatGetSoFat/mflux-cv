@@ -34,7 +34,10 @@ class MageFlowCLIUtil:
         try:
             model_config = ModelConfig.from_name(model_name=args.model, base_model=args.base_model)
         except ModelConfigError as exc:
+            # parser.error() exits the process; re-raise as a safeguard so model_config is
+            # always bound on the lines below.
             parser.error(str(exc))
+            raise
 
         compatible_aliases = MageFlowCLIUtil.EDIT_ALIASES if edit else MageFlowCLIUtil.TEXT_TO_IMAGE_ALIASES
         if not compatible_aliases.intersection(model_config.aliases):
