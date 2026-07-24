@@ -101,6 +101,8 @@ class CommandLineParser(argparse.ArgumentParser):
         self.supports_lora = False
         self.require_model_arg = True
         self.require_init_image = False
+        self.require_image_paths = False
+        self.defer_step_default = False
 
     def add_general_arguments(self) -> None:
         self.add_argument("--battery-percentage-stop-limit", "-B", type=lambda v: max(min(int(v), 99), 1), default=ui_defaults.BATTERY_PERCENTAGE_STOP_LIMIT, help=f"On Macs powered by battery, stop image generation when battery reaches this percentage. Default: {ui_defaults.BATTERY_PERCENTAGE_STOP_LIMIT}")
@@ -147,20 +149,33 @@ class CommandLineParser(argparse.ArgumentParser):
             help="Merge LoRA/LoKr deltas into base weights after load (default: on). Use --no-bake-lora to keep runtime adapters.",
         )
 
-    def _add_image_generator_common_arguments(self, supports_dimension_scale_factor=False) -> None:
+    def _add_image_generator_common_arguments(
+        self,
+        supports_dimension_scale_factor=False,
+        dimensions_default_to_none=False,
+    ) -> None:
         self.supports_image_generation = True
         if supports_dimension_scale_factor:
             self.supports_dimension_scale_factor = True
             self.add_argument("--height", type=int_or_special_value, default="auto", help="Image height (Default is source image height)")
             self.add_argument("--width", type=int_or_special_value, default="auto", help="Image width (Default is source image width)")
+        elif dimensions_default_to_none:
+            self.add_argument("--height", type=int, default=None, help="Image height (Default follows the source image)")
+            self.add_argument("--width", type=int, default=None, help="Image width (Default follows the source image)")
         else:
             self.add_argument("--height", type=int, default=ui_defaults.HEIGHT, help=f"Image height (Default is {ui_defaults.HEIGHT})")
-            self.add_argument("--width", type=int, default=ui_defaults.WIDTH, help=f"Image width (Default is {ui_defaults.HEIGHT})")
+            self.add_argument("--width", type=int, default=ui_defaults.WIDTH, help=f"Image width (Default is {ui_defaults.WIDTH})")
 
         self.add_argument("--steps", type=int, default=None, help="Inference Steps")
         self.add_argument("--guidance", type=float, default=None, help=f"Guidance Scale (Default varies by tool: {ui_defaults.GUIDANCE_SCALE} for most, {ui_defaults.DEFAULT_DEV_FILL_GUIDANCE} for fill tools, {ui_defaults.DEFAULT_DEPTH_GUIDANCE} for depth)")
 
-    def add_image_generator_arguments(self, supports_metadata_config=False, require_prompt=True, supports_dimension_scale_factor=False) -> None:
+    def add_image_generator_arguments(
+        self,
+        supports_metadata_config=False,
+        require_prompt=True,
+        supports_dimension_scale_factor=False,
+        dimensions_default_to_none=False,
+    ) -> None:
         prompt_group = self.add_mutually_exclusive_group(required=(require_prompt and not supports_metadata_config))
         prompt_group.add_argument("--prompt", type=str, help="The textual description of the image to generate.")
         prompt_group.add_argument("--prompt-file", type=Path, help="Path to a file containing the prompt text. The file will be re-read before each generation, allowing you to edit the prompt between iterations when using multiple seeds without restarting the program.")
@@ -175,7 +190,10 @@ class CommandLineParser(argparse.ArgumentParser):
         sigma_group.add_argument("--karras", action="store_true", help="Use Karras sigma schedule (concentrates steps toward the end of denoising for finer details)")
         sigma_group.add_argument("--exponential", action="store_true", help="Use exponential sigma schedule (logarithmic spacing between sigma_max and sigma_min)")
         self.add_argument("--aspect", type=str, default=None, choices=list(ASPECT_RATIOS.keys()), help="Aspect ratio preset (e.g. 16:9, 3:2). If combined with only --width or --height, the other is auto-computed.")
-        self._add_image_generator_common_arguments(supports_dimension_scale_factor=supports_dimension_scale_factor)
+        self._add_image_generator_common_arguments(
+            supports_dimension_scale_factor=supports_dimension_scale_factor,
+            dimensions_default_to_none=dimensions_default_to_none,
+        )
         if supports_metadata_config:
             self.add_metadata_config()
         self.require_prompt = require_prompt
@@ -188,6 +206,22 @@ class CommandLineParser(argparse.ArgumentParser):
         self.add_argument("--image", dest="image", nargs="+", default=None, metavar=("PATH", "STRENGTH"), help=f"Init image as an atomic PATH with optional STRENGTH (default {ui_defaults.IMAGE_STRENGTH}): --image photo.jpg 0.6. Preferred over --image-path/--image-strength.")
         self.add_argument("--image-path", type=Path, required=False, default=None, help="[DEPRECATED: use --image] Local path to init image")
         self.add_argument("--image-strength", type=float, required=False, default=ui_defaults.IMAGE_STRENGTH, help=f"[DEPRECATED: use --image] Controls how strongly the init image influences the output image. A value of 0.0 means no influence. (Default is {ui_defaults.IMAGE_STRENGTH})")
+
+    def add_mage_flow_arguments(self) -> None:
+        # Mage Flow's six released checkpoints have different step defaults.
+        # Keep an unspecified value intact until the concrete/custom model has
+        # been resolved to its base configuration.
+        self.defer_step_default = True
+        self.set_defaults(scheduler="mage_flow")
+        self.add_argument("--renormalization", action="store_true", help="Rescale guided velocity per token to reduce over-saturation at high guidance.")
+        self.add_argument("--gaussian-shading-key", type=str, default=None, help="Key for Mage Flow's Gaussian-Shading watermark. Defaults to MAGEFLOW_GS_KEY, MAGEFLOW_GS_KEY_FILE, or the released model key.")
+
+    def add_mage_flow_edit_arguments(self) -> None:
+        # Required after metadata merge so --config-from-metadata can supply image_paths.
+        self.require_image_paths = True
+        self.add_argument("--image-paths", type=Path, nargs="+", required=False, default=None, help="Local paths to one or more reference images.")
+        self.add_argument("--max-size", type=int, default=None, help="Longest output edge. The shorter edge follows the primary reference image's aspect ratio.")
+        self.add_mage_flow_arguments()
 
     def add_batch_image_generator_arguments(self) -> None:
         self.add_argument("--batch-prompts-file", type=Path, required=True, default=argparse.SUPPRESS, help="Local path for a file that holds a batch of prompts.")
@@ -477,6 +511,13 @@ class CommandLineParser(argparse.ArgumentParser):
             if hasattr(namespace, "image_path") and namespace.image_path is None:
                 namespace.image_path = prior_gen_metadata.get("image_path", None)
 
+            if hasattr(namespace, "image_paths") and namespace.image_paths is None:
+                metadata_image_paths = prior_gen_metadata.get("image_paths", None)
+                if metadata_image_paths:
+                    namespace.image_paths = [Path(path) for path in metadata_image_paths]
+                elif prior_gen_metadata.get("image_path", None) is not None:
+                    namespace.image_paths = [Path(prior_gen_metadata["image_path"])]
+
             if hasattr(namespace, "mask_path") and namespace.mask_path is None:
                 namespace.mask_path = (
                     prior_gen_metadata.get("masked_image_path", None) or prior_gen_metadata.get("mask_path", None)
@@ -511,6 +552,9 @@ class CommandLineParser(argparse.ArgumentParser):
         if self.require_init_image and getattr(namespace, "image_path", None) is None:
             self.error("An init image is required. Provide one with --image PATH [STRENGTH] (e.g. --image photo.jpg 0.8).")
 
+        if self.require_image_paths and not getattr(namespace, "image_paths", None):
+            self.error("--image-paths is required, or 'image_paths' must be specified in the metadata config file.")
+
         if self.supports_image_generation and namespace.seed is None and namespace.auto_seeds > 0:
             # choose N unique int seeds in the range of  0 < value < 1 billion
             # Use random.sample to guarantee uniqueness
@@ -542,7 +586,11 @@ class CommandLineParser(argparse.ArgumentParser):
             if getattr(self, 'require_prompt', True):
                 self.error("Either --prompt or --prompt-file argument is required, or 'prompt' required in metadata config file")
 
-        if self.supports_image_generation and getattr(namespace, "steps", None) is None:
+        if (
+            self.supports_image_generation
+            and getattr(namespace, "steps", None) is None
+            and not self.defer_step_default
+        ):
             model_name = getattr(namespace, "model", None)
             namespace.steps = ui_defaults.MODEL_INFERENCE_STEPS.get(model_name, 25)
 
@@ -602,9 +650,13 @@ class CommandLineParser(argparse.ArgumentParser):
             elif height_explicit and not width_explicit:
                 namespace.width = _ceil16(namespace.height * ratio)
             elif not width_explicit and not height_explicit:
-                h = (target_pixels / ratio) ** 0.5
-                w = h * ratio
-                namespace.width = _ceil16(w)
-                namespace.height = _ceil16(h)
+                # With dimensions_default_to_none (e.g. Mage Flow edit) the unset dimensions are
+                # None so they can follow the reference image. Only derive a fixed aspect size when
+                # the parser has concrete dimension defaults; otherwise leave them for source sizing.
+                if default_w is not None and default_h is not None:
+                    h = (target_pixels / ratio) ** 0.5
+                    w = h * ratio
+                    namespace.width = _ceil16(w)
+                    namespace.height = _ceil16(h)
 
         return namespace

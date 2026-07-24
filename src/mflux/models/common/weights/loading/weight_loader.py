@@ -53,12 +53,18 @@ class WeightLoader:
         root_path = PathResolution.resolve(
             path=model_path,
             patterns=download_patterns if download_patterns is not None else weight_definition.get_download_patterns(),
+            required_pattern_groups=(
+                weight_definition.get_required_download_pattern_groups()
+                if hasattr(weight_definition, "get_required_download_pattern_groups")
+                else None
+            ),
         )
 
         components = {}
         quantization_level = None
         mflux_version = None
         component_quantization_levels: dict[str, int | None] = {}
+        native_metadata: tuple[int | None, str] | None = None
         raw_weights_cache: dict[tuple, dict] = {}  # Cache by (path, loading_mode, weight_files)
 
         for component in weight_definition.get_components():
@@ -81,9 +87,17 @@ class WeightLoader:
 
             components[component.name] = weights
 
-            if quantization_level is None and q_level is not None:
-                quantization_level = q_level
-                mflux_version = version
+            if version is not None:
+                component_metadata = (q_level, version)
+                if native_metadata is not None and component_metadata != native_metadata:
+                    raise ValueError(
+                        f"Inconsistent MFLUX metadata across components: "
+                        f"expected quantization_level={native_metadata[0]}, "
+                        f"mflux_version={native_metadata[1]!r}; {component.name} has "
+                        f"quantization_level={q_level}, mflux_version={version!r}"
+                    )
+                native_metadata = component_metadata
+                quantization_level, mflux_version = component_metadata
 
         return LoadedWeights(
             components=components,
@@ -176,36 +190,121 @@ class WeightLoader:
         if not path.exists():
             return None, None, None
 
+        index_path = path / "model.safetensors.index.json"
+        index: dict | None = None
+        index_metadata: tuple[int | None, str | None] | None = None
+        if index_path.exists():
+            with index_path.open(encoding="utf-8") as index_file:
+                loaded_index = json.load(index_file)
+            if not isinstance(loaded_index, dict):
+                raise ValueError(f"Invalid MFLUX weight index in {index_path}: expected a JSON object")
+            index = loaded_index
+            index_metadata = WeightLoader._parse_mflux_metadata(index.get("metadata"), index_path)
+
         shard_files = sorted(f for f in path.glob("*.safetensors") if not f.name.startswith("._"))
-        if not shard_files:
+        first_shard_metadata = None
+        if index_metadata is None and shard_files:
+            first_shard = mx.load(str(shard_files[0]), return_metadata=True)
+            first_shard_metadata = WeightLoader._parse_mflux_metadata(first_shard[1], shard_files[0])
+
+        # Hugging Face checkpoints do not carry MFLUX metadata and use their normal loader.
+        if index_metadata is None and first_shard_metadata is None:
             return None, None, None
 
-        # Check metadata on first file
-        data = mx.load(str(shard_files[0]), return_metadata=True)
-        if len(data) <= 1:
-            return None, None, None
+        if index is None:
+            raise FileNotFoundError(f"MFLUX weight index not found: {index_path}")
+        if index_metadata is None:
+            raise ValueError(f"MFLUX metadata is missing from weight index: {index_path}")
 
-        quantization_level_str = data[1].get("quantization_level")
-        mflux_version = data[1].get("mflux_version")
+        weight_map = index.get("weight_map")
+        if not isinstance(weight_map, dict) or not weight_map:
+            raise ValueError(f"Invalid MFLUX weight index in {index_path}: weight_map must be a non-empty object")
 
-        # If no mflux metadata, this isn't our format
-        if quantization_level_str is None and mflux_version is None:
-            return None, None, None
+        keys_by_shard: dict[str, list[str]] = {}
+        for tensor_key, shard_filename in weight_map.items():
+            if not isinstance(tensor_key, str) or not tensor_key:
+                raise ValueError(f"Invalid MFLUX tensor key in {index_path}: {tensor_key!r}")
+            WeightLoader._validate_mflux_shard_filename(shard_filename, index_path)
+            keys_by_shard.setdefault(shard_filename, []).append(tensor_key)
 
-        # Convert quantization level from string to int
-        if quantization_level_str in (None, "None", "null", ""):
-            quantization_level = None
-        else:
-            quantization_level = int(quantization_level_str)
-
-        # Load all shards
+        quantization_level, mflux_version = index_metadata
         all_weights: dict[str, mx.array] = {}
-        for shard in shard_files:
-            shard_data = mx.load(str(shard), return_metadata=True)
-            all_weights.update(dict(shard_data[0].items()))
+        for shard_filename, expected_keys in keys_by_shard.items():
+            shard_path = path / shard_filename
+            if not shard_path.is_file():
+                raise FileNotFoundError(f"MFLUX weight shard referenced by {index_path} is missing: {shard_path}")
+
+            shard_weights, raw_shard_metadata = mx.load(str(shard_path), return_metadata=True)
+            shard_metadata = WeightLoader._parse_mflux_metadata(raw_shard_metadata, shard_path)
+            if shard_metadata != index_metadata:
+                raise ValueError(
+                    f"Inconsistent MFLUX metadata in {shard_path}: "
+                    f"expected quantization_level={quantization_level}, mflux_version={mflux_version!r}; "
+                    f"got {shard_metadata!r}"
+                )
+
+            expected_key_set = set(expected_keys)
+            actual_key_set = set(shard_weights)
+            missing_keys = sorted(expected_key_set - actual_key_set)
+            unexpected_keys = sorted(actual_key_set - expected_key_set)
+            if missing_keys or unexpected_keys:
+                problems = []
+                if missing_keys:
+                    problems.append(f"missing tensor keys {WeightLoader._summarize_keys(missing_keys)}")
+                if unexpected_keys:
+                    problems.append(f"unexpected tensor keys {WeightLoader._summarize_keys(unexpected_keys)}")
+                raise ValueError(f"MFLUX shard {shard_path} does not match {index_path}: {'; '.join(problems)}")
+
+            all_weights.update((key, shard_weights[key]) for key in expected_keys)
 
         unflattened = tree_unflatten(list(all_weights.items()))
         return unflattened, quantization_level, mflux_version
+
+    @staticmethod
+    def _parse_mflux_metadata(metadata: object, source: Path) -> tuple[int | None, str | None] | None:
+        if not isinstance(metadata, dict):
+            return None
+        if "quantization_level" not in metadata and "mflux_version" not in metadata:
+            return None
+
+        raw_quantization_level = metadata.get("quantization_level")
+        if raw_quantization_level in (None, "None", "null", ""):
+            quantization_level = None
+        elif isinstance(raw_quantization_level, bool):
+            raise ValueError(f"Invalid MFLUX quantization metadata in {source}: {raw_quantization_level!r}")
+        else:
+            try:
+                quantization_level = int(raw_quantization_level)
+            except (TypeError, ValueError) as error:
+                raise ValueError(
+                    f"Invalid MFLUX quantization metadata in {source}: {raw_quantization_level!r}"
+                ) from error
+
+        mflux_version = metadata.get("mflux_version")
+        if not isinstance(mflux_version, str) or not mflux_version.strip():
+            raise ValueError(f"Missing or invalid MFLUX version metadata in {source}: {mflux_version!r}")
+        return quantization_level, mflux_version
+
+    @staticmethod
+    def _validate_mflux_shard_filename(shard_filename: object, index_path: Path) -> None:
+        if not isinstance(shard_filename, str) or not shard_filename:
+            raise ValueError(f"Invalid MFLUX shard filename in {index_path}: {shard_filename!r}")
+
+        shard_path = Path(shard_filename)
+        if (
+            shard_path.is_absolute()
+            or shard_path.name != shard_filename
+            or shard_path.suffix != ".safetensors"
+            or shard_filename.startswith("._")
+        ):
+            raise ValueError(f"Invalid MFLUX shard filename in {index_path}: {shard_filename!r}")
+
+    @staticmethod
+    def _summarize_keys(keys: list[str], limit: int = 5) -> str:
+        summary = ", ".join(repr(key) for key in keys[:limit])
+        if len(keys) > limit:
+            summary += f", ... ({len(keys)} total)"
+        return f"[{summary}]"
 
     @staticmethod
     def _download_from_url(url: str, component_name: str) -> Path:

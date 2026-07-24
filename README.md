@@ -347,6 +347,7 @@ MFLUX supports the following model families. They have different strengths and w
 
 | Model | Release date | Size | Type | Training | Description |
 | --- | --- | --- | --- | --- | --- |
+|[Mage Flow](src/mflux/models/mage_flow/README.md) | Jul 2026 | 8.7B | Base, RL & Turbo | No | Native-resolution generation with natural-language, multi-image editing. |
 |[Z-Image](src/mflux/models/z_image/README.md) | Nov 2025 | 6B | Distilled & Base | Yes | Fast, small, very good quality and realism. |
 |[Krea 2](src/mflux/models/krea2/README.md) | Jun 2026 | 12B | Turbo (distilled) | No | Very good quality with a wide range of styles; good for creative exploration. |
 |[FLUX.2](src/mflux/models/flux2/README.md) | Jan 2026 | 4B & 9B | Distilled & Base | Yes | Fastest + smallest with very good qaility and edit capabilities. |
@@ -406,6 +407,7 @@ MFLUX would not be possible without the great work of:
 - Bria for the [FIBO project](https://huggingface.co/briaai/FIBO)
 - Tongyi Lab for the [Z-Image project](https://tongyi-mai.github.io/Z-Image-blog/)
 - Baidu for the [ERNIE-Image project](https://huggingface.co/baidu/ERNIE-Image)
+- Microsoft for the [Mage Flow project](https://huggingface.co/collections/microsoft/mage-flow)
 - Ideogram for the [Ideogram 4 project](https://huggingface.co/ideogram-ai/ideogram-4-fp8)
 - Krea.ai for the [Krea 2 project](https://www.krea.ai/blog/krea-2-technical-report)
 - Qwen Team for the [Qwen Image project](https://qwen.ai/blog?id=a6f483777144685d33cd3d2af95136fcbeb57652&from=research.research-list)

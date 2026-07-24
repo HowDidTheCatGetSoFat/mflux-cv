@@ -22,6 +22,9 @@ class MemorySaver(BeforeLoopCallback, InLoopCallback, AfterLoopCallback):
         self.keep_transformer = keep_transformer
         self.peak_memory: int = 0
         self._num_seeds = num_seeds
+        self._has_dynamic_multi_seed_prompt = (
+            num_seeds > 1 and args is not None and getattr(args, "prompt_file", None) is not None
+        )
         if cache_limit_bytes is not None:
             if model.tiling_config is None:
                 self.model.tiling_config = TilingConfig()
@@ -44,7 +47,7 @@ class MemorySaver(BeforeLoopCallback, InLoopCallback, AfterLoopCallback):
         # (Flux1 caches embeddings so encoder isn't needed for subsequent seeds;
         #  Flux2 re-encodes each call and has no prompt_cache — keep encoder for multi-seed)
         has_cached_embeds = hasattr(self.model, "prompt_cache") and prompt in (self.model.prompt_cache or {})
-        if self._num_seeds <= 1 or has_cached_embeds:
+        if not self._has_dynamic_multi_seed_prompt and (self._num_seeds <= 1 or has_cached_embeds):
             self._delete_text_encoders()
 
     def call_in_loop(

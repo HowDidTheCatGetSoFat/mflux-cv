@@ -114,32 +114,26 @@ class Qwen3VLAttention(nn.Module):
         valid_key_states = cache_key_states[:, :, :cache_length, :]
         valid_value_states = cache_value_states[:, :, :cache_length, :]
 
-        if self.num_key_value_heads != self.num_attention_heads:
-            key_states = Qwen3VLAttention._repeat_kv(valid_key_states, self.num_key_value_groups)
-            value_states = Qwen3VLAttention._repeat_kv(valid_value_states, self.num_key_value_groups)
-        else:
-            key_states = valid_key_states
-            value_states = valid_value_states
+        # MLX fast SDPA supports grouped-query attention directly. Keeping the
+        # compact KV heads avoids a 4x materialized repeat for Qwen3-VL 4B.
+        key_states = valid_key_states
+        value_states = valid_value_states
 
         attn_mask = None
         if attention_mask is not None:
             kv_len = key_states.shape[2]
             attn_mask = attention_mask[:, :, :, :kv_len]
 
-        query_states_f32 = query_states.astype(mx.float32)
-        key_states_f32 = key_states.astype(mx.float32)
-        value_states_f32 = value_states.astype(mx.float32)
-
-        # Use fast MLX attention
+        # The fused kernel accumulates its softmax in FP32; preserving the model
+        # dtype here avoids three full-sequence activation copies.
         attn_output = scaled_dot_product_attention(
-            query_states_f32,
-            key_states_f32,
-            value_states_f32,
+            query_states,
+            key_states,
+            value_states,
             scale=self.scaling,
             mask=attn_mask,
         )
 
-        attn_output = attn_output.astype(query_states.dtype)
         attn_output = attn_output.transpose(0, 2, 1, 3).reshape(bsz, q_len, self.num_attention_heads * self.head_dim)
         attn_output = self.o_proj(attn_output)
         return attn_output, (cache_key_states, cache_value_states, cache_length)

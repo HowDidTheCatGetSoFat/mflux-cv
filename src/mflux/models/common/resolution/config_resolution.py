@@ -1,4 +1,6 @@
+import json
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from mflux.models.common.resolution.actions import ConfigAction, Rule
@@ -10,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 class ConfigResolution:
+    SAVED_CONFIG_FILENAME = "mflux_model_config.json"
+
     RULES = frozenset(
         {
             Rule(priority=0, name="exact_match", check="is_exact_match", action=ConfigAction.EXACT_MATCH),
@@ -23,6 +27,12 @@ class ConfigResolution:
     def resolve(model_name: str, base_model: str | None = None) -> "ModelConfig":
         from mflux.models.common.config.model_config import AVAILABLE_MODELS, ModelConfig
         from mflux.utils.exceptions import InvalidBaseModel, ModelConfigError
+
+        if base_model is None:
+            try:
+                base_model = ConfigResolution._read_saved_base_model(model_name)
+            except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
+                raise ModelConfigError(f"Invalid saved MFLUX model config for {model_name}: {error}") from error
 
         base_models = sorted(
             [m for m in AVAILABLE_MODELS.values() if m.base_model is None],
@@ -44,6 +54,20 @@ class ConfigResolution:
                 return ConfigResolution._execute(rule.action, ctx)
 
         raise ValueError(f"No rule matched for model_name: {model_name}")
+
+    @staticmethod
+    def _read_saved_base_model(model_name: str) -> str | None:
+        config_path = Path(model_name).expanduser() / ConfigResolution.SAVED_CONFIG_FILENAME
+        if not config_path.is_file():
+            return None
+        with config_path.open(encoding="utf-8") as config_file:
+            config = json.load(config_file)
+        if not isinstance(config, dict):
+            raise ValueError("expected a JSON object")
+        base_model = config.get("base_model")
+        if not isinstance(base_model, str) or not base_model:
+            raise ValueError("base_model must be a non-empty string")
+        return base_model
 
     @staticmethod
     def _check(check: str, ctx: dict) -> bool:
@@ -131,4 +155,7 @@ class ConfigResolution:
             sigma_base_seq_len=base.sigma_base_seq_len,
             sigma_max_seq_len=base.sigma_max_seq_len,
             sigma_shift_terminal=base.sigma_shift_terminal,
+            lora_training_steps=base.lora_training_steps,
+            lora_training_guidance=base.lora_training_guidance,
+            supports_kv_cache=base.supports_kv_cache,
         )

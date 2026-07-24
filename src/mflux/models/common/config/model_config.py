@@ -1,5 +1,4 @@
 from functools import lru_cache
-from typing import Literal
 
 import mlx.core as mx
 
@@ -185,6 +184,36 @@ class ModelConfig:
 
     @staticmethod
     @lru_cache
+    def mage_flow_base() -> "ModelConfig":
+        return AVAILABLE_MODELS["mage-flow-base"]
+
+    @staticmethod
+    @lru_cache
+    def mage_flow() -> "ModelConfig":
+        return AVAILABLE_MODELS["mage-flow"]
+
+    @staticmethod
+    @lru_cache
+    def mage_flow_turbo() -> "ModelConfig":
+        return AVAILABLE_MODELS["mage-flow-turbo"]
+
+    @staticmethod
+    @lru_cache
+    def mage_flow_edit_base() -> "ModelConfig":
+        return AVAILABLE_MODELS["mage-flow-edit-base"]
+
+    @staticmethod
+    @lru_cache
+    def mage_flow_edit() -> "ModelConfig":
+        return AVAILABLE_MODELS["mage-flow-edit"]
+
+    @staticmethod
+    @lru_cache
+    def mage_flow_edit_turbo() -> "ModelConfig":
+        return AVAILABLE_MODELS["mage-flow-edit-turbo"]
+
+    @staticmethod
+    @lru_cache
     def ernie_image_turbo() -> "ModelConfig":
         return AVAILABLE_MODELS["ernie-image-turbo"]
 
@@ -237,7 +266,7 @@ class ModelConfig:
     @staticmethod
     def from_name(
         model_name: str,
-        base_model: Literal["dev", "schnell", "krea-dev"] | None = None,
+        base_model: str | None = None,
     ) -> "ModelConfig":
         return ConfigResolution.resolve(model_name=model_name, base_model=base_model)
 
@@ -633,6 +662,90 @@ AVAILABLE_MODELS = {
         max_sequence_length=512,
         supports_guidance=True,
         requires_sigma_shift=False,
+    ),
+    "mage-flow-base": ModelConfig(
+        priority=28,
+        aliases=["mage-flow-base", "mageflow-base"],
+        model_name="microsoft/Mage-Flow-Base",
+        base_model=None,
+        controlnet_model=None,
+        custom_transformer_model=None,
+        num_train_steps=1000,
+        max_sequence_length=2048,
+        supports_guidance=True,
+        requires_sigma_shift=True,
+        sigma_base_shift=1.791759469228055,
+        sigma_max_shift=1.791759469228055,
+    ),
+    "mage-flow": ModelConfig(
+        priority=29,
+        aliases=["mage-flow", "mageflow"],
+        model_name="microsoft/Mage-Flow",
+        base_model=None,
+        controlnet_model=None,
+        custom_transformer_model=None,
+        num_train_steps=1000,
+        max_sequence_length=2048,
+        supports_guidance=True,
+        requires_sigma_shift=True,
+        sigma_base_shift=1.791759469228055,
+        sigma_max_shift=1.791759469228055,
+    ),
+    "mage-flow-turbo": ModelConfig(
+        priority=30,
+        aliases=["mage-flow-turbo", "mageflow-turbo"],
+        model_name="microsoft/Mage-Flow-Turbo",
+        base_model=None,
+        controlnet_model=None,
+        custom_transformer_model=None,
+        num_train_steps=1000,
+        max_sequence_length=2048,
+        supports_guidance=False,
+        requires_sigma_shift=True,
+        sigma_base_shift=1.791759469228055,
+        sigma_max_shift=1.791759469228055,
+    ),
+    "mage-flow-edit-base": ModelConfig(
+        priority=31,
+        aliases=["mage-flow-edit-base", "mageflow-edit-base"],
+        model_name="microsoft/Mage-Flow-Edit-Base",
+        base_model=None,
+        controlnet_model=None,
+        custom_transformer_model=None,
+        num_train_steps=1000,
+        max_sequence_length=2048,
+        supports_guidance=True,
+        requires_sigma_shift=True,
+        sigma_base_shift=1.791759469228055,
+        sigma_max_shift=1.791759469228055,
+    ),
+    "mage-flow-edit": ModelConfig(
+        priority=32,
+        aliases=["mage-flow-edit", "mageflow-edit"],
+        model_name="microsoft/Mage-Flow-Edit",
+        base_model=None,
+        controlnet_model=None,
+        custom_transformer_model=None,
+        num_train_steps=1000,
+        max_sequence_length=2048,
+        supports_guidance=True,
+        requires_sigma_shift=True,
+        sigma_base_shift=1.791759469228055,
+        sigma_max_shift=1.791759469228055,
+    ),
+    "mage-flow-edit-turbo": ModelConfig(
+        priority=33,
+        aliases=["mage-flow-edit-turbo", "mageflow-edit-turbo"],
+        model_name="microsoft/Mage-Flow-Edit-Turbo",
+        base_model=None,
+        controlnet_model=None,
+        custom_transformer_model=None,
+        num_train_steps=1000,
+        max_sequence_length=2048,
+        supports_guidance=False,
+        requires_sigma_shift=True,
+        sigma_base_shift=1.791759469228055,
+        sigma_max_shift=1.791759469228055,
     ),
     "z-image": ModelConfig(
         priority=20,

@@ -30,11 +30,13 @@ class CallbackManager:
         if enable_depth_saver:
             CallbackManager._register_depth_saver(args, model)
 
+        # Evict unused encoders before stepwise decoding to avoid carrying the
+        # text encoder and VAE together at the first denoising boundary.
+        memory_saver = CallbackManager._register_memory_saver(args, model)
+
         # Stepwise handler (if requested)
         CallbackManager._register_stepwise_handler(args, model, latent_creator)
-
-        # Memory saver (if requested)
-        return CallbackManager._register_memory_saver(args, model)
+        return memory_saver
 
     @staticmethod
     def _register_battery_saver(args: Namespace, model) -> None:
@@ -100,7 +102,13 @@ class CallbackManager:
         else:
             # Always evict text encoders after encoding — they are never needed post-encode
             # and keeping them wastes 8-12 GB throughout the denoising loop.
-            memory_saver = MemorySaver(model=model, keep_transformer=True, cache_limit_bytes=None, num_seeds=num_seeds)
+            memory_saver = MemorySaver(
+                model=model,
+                keep_transformer=True,
+                cache_limit_bytes=None,
+                args=args,
+                num_seeds=num_seeds,
+            )
             if cache_limit_bytes is not None:
                 mx.set_cache_limit(cache_limit_bytes)
                 mx.clear_cache()

@@ -47,3 +47,32 @@ def test_completion_generator_includes_atomic_lora_and_image_flags():
     assert "'--image''[" in script
     assert "'--lora-paths''[" in script
     assert "'--image-path''[" in script
+
+
+@pytest.mark.fast
+@pytest.mark.parametrize(
+    ("command", "expected_flags"),
+    [
+        (
+            "mflux-generate-mage-flow",
+            ("--model", "--prompt", "--renormalization", "--gaussian-shading-key"),
+        ),
+        (
+            "mflux-generate-mage-flow-edit",
+            ("--model", "--prompt", "--image-paths", "--max-size", "--renormalization"),
+        ),
+    ],
+)
+def test_completion_generator_includes_mage_flow_commands(
+    command: str,
+    expected_flags: tuple[str, ...],
+) -> None:
+    generator = CompletionGenerator()
+
+    assert command in generator.commands
+    parser = generator.create_parser_for_command(command)
+    script = generator.generate_command_function(command, parser)
+
+    assert f"_{command.replace('-', '_')}()" in script
+    for flag in expected_flags:
+        assert flag in script

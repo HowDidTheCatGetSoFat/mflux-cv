@@ -22,6 +22,8 @@ class CompletionGenerator:
             "mflux-generate-redux",
             "mflux-generate-qwen",
             "mflux-generate-qwen-edit",
+            "mflux-generate-mage-flow",
+            "mflux-generate-mage-flow-edit",
             "mflux-generate-fibo",
             "mflux-generate-fibo-edit",
             "mflux-generate-z-image",
@@ -155,6 +157,25 @@ class CompletionGenerator:
             parser.add_lora_arguments()
             parser.add_image_generator_arguments(supports_metadata_config=True, supports_dimension_scale_factor=True)
             parser.add_argument("--image-paths", type=Path, nargs="+", required=True, help="Local paths to init images")
+            parser.add_output_arguments()
+
+        elif command == "mflux-generate-mage-flow":
+            parser.add_general_arguments()
+            parser.add_model_arguments(require_model_arg=False)
+            parser.set_defaults(model="mage-flow")
+            parser.add_image_generator_arguments(supports_metadata_config=True)
+            parser.add_mage_flow_arguments()
+            parser.add_output_arguments()
+
+        elif command == "mflux-generate-mage-flow-edit":
+            parser.add_general_arguments()
+            parser.add_model_arguments(require_model_arg=False)
+            parser.set_defaults(model="mage-flow-edit")
+            parser.add_image_generator_arguments(
+                supports_metadata_config=True,
+                dimensions_default_to_none=True,
+            )
+            parser.add_mage_flow_edit_arguments()
             parser.add_output_arguments()
 
         elif command == "mflux-generate-fibo":
