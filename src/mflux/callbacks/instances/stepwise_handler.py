@@ -93,8 +93,8 @@ class StepwiseHandler(BeforeLoopCallback, InLoopCallback, InterruptCallback):
             seed=seed,
             prompt=prompt,
             quantization=self.model.bits,
-            lora_paths=self.model.lora_paths,
-            lora_scales=self.model.lora_scales,
+            lora_paths=getattr(self.model, "lora_paths", None),
+            lora_scales=getattr(self.model, "lora_scales", None),
             generation_time=generation_time,
         )
         stepwise_img.save(
