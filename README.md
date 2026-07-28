@@ -15,10 +15,10 @@ pip install mflux-cv
 To track a specific tag instead, or to pick up work that has not been released yet:
 
 ```bash
-pip install git+https://github.com/HowDidTheCatGetSoFat/mflux-cv.git@v.0.18.25-CV
+pip install git+https://github.com/mflux-community/mflux-cv.git@v.0.18.25-CV
 ```
 
-Wheels are also attached to every [Release](https://github.com/HowDidTheCatGetSoFat/mflux-cv/releases).
+Wheels are also attached to every [Release](https://github.com/mflux-community/mflux-cv/releases).
 
 > **Install this or upstream `mflux`, never both.** The distribution is named `mflux-cv` so it can
 > live on PyPI alongside upstream, though both provide the same `mflux` import package. With both
@@ -138,9 +138,10 @@ goes to their authors.
 - Repo automation: CodeQL security scanning, structured issue forms, and PR / issue auto-labeling.
 
 ### 0.18.15-CV
-First release under the `mflux-CV` name, in the community home at
-[HowDidTheCatGetSoFat/mflux-cv](https://github.com/HowDidTheCatGetSoFat/mflux-cv). Same codebase as the
-prior `+fxd0h` builds (0.18.1 through 0.18.5); this is the rebrand plus everything listed below.
+First release under the `mflux-CV` name, then hosted at `HowDidTheCatGetSoFat/mflux-cv`. The repo has
+since been transferred to [mflux-community](https://github.com/mflux-community/mflux-cv), and the old
+URL redirects. Same codebase as the prior `+fxd0h` builds (0.18.1 through 0.18.5); this is the rebrand
+plus everything listed below.
 
 ### 0.18.5
 - **Krea 2 `--krea2-uncensor <k>`**: scales the text-fusion projector's refusal layers (tapped Qwen3-VL
@@ -243,6 +244,7 @@ Run the latest state-of-the-art generative image models locally on your Mac in n
 - [🎨 Models](#-models)
 - [✨ Features](#-features)
 - [🌱 Related projects](#related-projects)
+- [👥 Who wrote what](#-who-wrote-what)
 - [🙏 Acknowledgements](#-acknowledgements)
 - [⚖️ License](#%EF%B8%8F-license)
 
@@ -395,6 +397,133 @@ See the [common README](src/mflux/models/common/README.md) for detailed usage an
 - [mflux-streamlit](https://github.com/elitexp/mflux-streamlit) by [@elitexp](https://github.com/elitexp)
 - [mlx-taef](https://github.com/IonDen/mlx-taef) — TAESD/TAEF tiny-autoencoder live previews and low-memory FLUX decode for mflux, by [@IonDen](https://github.com/IonDen)
 - [mlx-teacache](https://github.com/IonDen/mlx-teacache) — TeaCache step-skipping to speed up FLUX generation in mflux, by [@IonDen](https://github.com/IonDen)
+
+---
+
+### 👥 Who wrote what
+
+The people whose work you run when you use this build:
+
+<table>
+<tr>
+<td align="center" width="150">
+<a href="https://github.com/filipstrand"><img src="https://github.com/filipstrand.png?size=100" width="72" alt="filipstrand"><br><b>Filip Strand</b></a><br>
+<sub>created mflux<br>FLUX.1 · FLUX.2 · Z-Image<br>FIBO · SeedVR2 · Qwen · Depth Pro</sub>
+</td>
+<td align="center" width="150">
+<a href="https://github.com/plz12345"><img src="https://github.com/plz12345.png?size=100" width="72" alt="plz12345"><br><b>plz12345</b></a><br>
+<sub>Krea 2 · Boogu-Image<br>Ideogram 4 mlx-forge loading</sub>
+</td>
+<td align="center" width="150">
+<a href="https://github.com/ivanfioravanti"><img src="https://github.com/ivanfioravanti.png?size=100" width="72" alt="ivanfioravanti"><br><b>Ivan Fioravanti</b></a><br>
+<sub>Mage Flow<br>text-to-image and edit</sub>
+</td>
+<td align="center" width="150">
+<a href="https://github.com/azrahello"><img src="https://github.com/azrahello.png?size=100" width="72" alt="azrahello"><br><b>Alessandro Rizzo</b></a><br>
+<sub>ERNIE-Image<br>configurable VAE tiling</sub>
+</td>
+<td align="center" width="150">
+<a href="https://github.com/omercelik"><img src="https://github.com/omercelik.png?size=100" width="72" alt="omercelik"><br><b>omercelik</b></a><br>
+<sub>Ideogram 4</sub>
+</td>
+</tr>
+<tr>
+<td align="center" width="150">
+<a href="https://github.com/ZimengXiong"><img src="https://github.com/ZimengXiong.png?size=100" width="72" alt="ZimengXiong"><br><b>Zimeng Xiong</b></a><br>
+<sub>Qwen-Image-Layered<br>RGBA decomposition</sub>
+</td>
+<td align="center" width="150">
+<a href="https://github.com/JanGrohn"><img src="https://github.com/JanGrohn.png?size=100" width="72" alt="JanGrohn"><br><b>Jan Grohn</b></a><br>
+<sub>LyCORIS LoKr adapters</sub>
+</td>
+<td align="center" width="150">
+<a href="https://github.com/michaeltrefry"><img src="https://github.com/michaeltrefry.png?size=100" width="72" alt="michaeltrefry"><br><b>michaeltrefry</b></a><br>
+<sub>FLUX.2 KV-cache<br>klein-9b-kv</sub>
+</td>
+<td align="center" width="150">
+<a href="https://github.com/ianscrivener"><img src="https://github.com/ianscrivener.png?size=100" width="72" alt="ianscrivener"><br><b>Ian Scrivener</b></a><br>
+<sub>FLUX.2 mixed-quant inference</sub>
+</td>
+<td align="center" width="150">
+<a href="https://github.com/deadmansahil"><img src="https://github.com/deadmansahil.png?size=100" width="72" alt="deadmansahil"><br><b>Sahil Tanveer</b></a><br>
+<sub>fused-qkv LoRA loading</sub>
+</td>
+</tr>
+<tr>
+<td align="center" width="150">
+<a href="https://github.com/scaryrawr"><img src="https://github.com/scaryrawr.png?size=100" width="72" alt="scaryrawr"><br><b>Mike Wallio</b></a><br>
+<sub>ERNIE / Krea 2<br>img2img tiled latents</sub>
+</td>
+<td align="center" width="150">
+<a href="https://github.com/imbible"><img src="https://github.com/imbible.png?size=100" width="72" alt="imbible"><br><b>George</b></a><br>
+<sub>Qwen model version defaults</sub>
+</td>
+<td align="center" width="150">
+<a href="https://github.com/Missing-Identity"><img src="https://github.com/Missing-Identity.png?size=100" width="72" alt="Missing-Identity"><br><b>Unmilan Mukherjee</b></a><br>
+<sub>SeedVR2<br>linear-time histogram matching</sub>
+</td>
+<td align="center" width="150">
+<a href="https://github.com/fxd0h"><img src="https://github.com/fxd0h.png?size=100" width="72" alt="fxd0h"><br><b>Mariano Abad</b></a><br>
+<sub>Z-Image and Krea 2 ControlNets<br>multi-ControlNet · training suite</sub>
+</td>
+<td align="center" width="150">
+<a href="https://github.com/mflux-community/mflux-cv/graphs/contributors"><img src="https://github.com/mflux-community.png?size=100" width="72" alt="everyone else"><br><b>everyone else</b></a><br>
+<sub>every contributor and tester<br>in the graph</sub>
+</td>
+</tr>
+</table>
+
+The provenance behind that grid, read out of the git history rather than filled in by hand. Dates are
+the **merge date of the PR that brought the work in**, which is months away from the model's own public
+release date in several cases. Anyone can re-derive a row:
+`gh pr view <n> -R filipstrand/mflux --json author,mergedAt`.
+
+Ported upstream and inherited here:
+
+| Model | Component | Contributor | Merged | PR |
+|---|---|---|---|---|
+| FLUX.1 | | [@filipstrand](https://github.com/filipstrand) | 2024-08-12 | initial release |
+| Depth Pro | | [@filipstrand](https://github.com/filipstrand) | 2025-03-23 | [#159](https://github.com/filipstrand/mflux/pull/159) |
+| Qwen Image | | [@filipstrand](https://github.com/filipstrand) | 2025-10-06 | [#269](https://github.com/filipstrand/mflux/pull/269) |
+| FIBO | | [@filipstrand](https://github.com/filipstrand) | 2025-11-27 | [#279](https://github.com/filipstrand/mflux/pull/279) |
+| Z-Image | | [@filipstrand](https://github.com/filipstrand) | 2025-12-03 | [#284](https://github.com/filipstrand/mflux/pull/284) |
+| SeedVR2 | | [@filipstrand](https://github.com/filipstrand) | 2025-12-31 | [#297](https://github.com/filipstrand/mflux/pull/297) |
+| FLUX.2 | | [@filipstrand](https://github.com/filipstrand) | 2026-01-18 | [#323](https://github.com/filipstrand/mflux/pull/323) |
+| ERNIE-Image | | [@azrahello](https://github.com/azrahello) | 2026-06-06 | [#417](https://github.com/filipstrand/mflux/pull/417) |
+| Ideogram 4 | | [@omercelik](https://github.com/omercelik) | 2026-06-06 | [#433](https://github.com/filipstrand/mflux/pull/433) |
+| FLUX.2 | KV-cache (klein-9b-kv) | [@michaeltrefry](https://github.com/michaeltrefry) | 2026-06-07 | [#426](https://github.com/filipstrand/mflux/pull/426) |
+| Krea 2 | | [@plz12345](https://github.com/plz12345) | 2026-06-30 | [#453](https://github.com/filipstrand/mflux/pull/453) |
+
+Still open upstream, running here because this build pulled them in. Each is described in detail under
+[Community PRs pulled in](#community-prs-pulled-in):
+
+| Model | Component | Contributor | PR |
+|---|---|---|---|
+| Qwen-Image-Layered | | [@ZimengXiong](https://github.com/ZimengXiong) | [#302](https://github.com/filipstrand/mflux/pull/302) |
+| | LyCORIS LoKr | [@JanGrohn](https://github.com/JanGrohn) | [#422](https://github.com/filipstrand/mflux/pull/422) |
+| FLUX.2 | mixed-quant inference | [@ianscrivener](https://github.com/ianscrivener) | [#436](https://github.com/filipstrand/mflux/pull/436) |
+| Ideogram 4 | mlx-forge checkpoint loading | [@plz12345](https://github.com/plz12345) | [#445](https://github.com/filipstrand/mflux/pull/445) |
+| Boogu-Image | | [@plz12345](https://github.com/plz12345) | [#446](https://github.com/filipstrand/mflux/pull/446) |
+| | fused-qkv LoRA loading | [@deadmansahil](https://github.com/deadmansahil) | [#459](https://github.com/filipstrand/mflux/pull/459) |
+| ERNIE / Krea 2 | img2img tiled latents | [@scaryrawr](https://github.com/scaryrawr) | [#463](https://github.com/filipstrand/mflux/pull/463) |
+| Qwen | model version defaults | [@imbible](https://github.com/imbible) | [#474](https://github.com/filipstrand/mflux/pull/474) |
+| | configurable VAE decode tiling | [@azrahello](https://github.com/azrahello) | [#475](https://github.com/filipstrand/mflux/pull/475) |
+| SeedVR2 | linear-time histogram matching | [@Missing-Identity](https://github.com/Missing-Identity) | [#488](https://github.com/filipstrand/mflux/pull/488) |
+| Mage Flow | | [@ivanfioravanti](https://github.com/ivanfioravanti) | [#483](https://github.com/filipstrand/mflux/pull/483) |
+
+Written in this build:
+
+| Model | Component | Contributor | Where |
+|---|---|---|---|
+| Z-Image | ControlNet: Union (canny/mlsd/depth/hed/pose) | [@fxd0h](https://github.com/fxd0h) | mirrored upstream as [#482](https://github.com/filipstrand/mflux/pull/482) |
+| Krea 2 | ControlNet: Depth | [@fxd0h](https://github.com/fxd0h) | this build only, no upstream PR |
+| FLUX.1 | multi-ControlNet stacking | [@fxd0h](https://github.com/fxd0h) | this build only |
+| | training suite (DoRA, LR schedules, optimizers, LoRA alpha, grad clipping/accumulation) | [@fxd0h](https://github.com/fxd0h) | open upstream as #439-#452, #464, #465 |
+
+One caveat on the method, stated so nobody trusts it further than it deserves: a first-commit-in-directory
+lookup is wrong for anything introduced before #269, because that PR created the `src/mflux/models/`
+layout and the lookup returns the restructure instead of the original work. Those rows were confirmed by
+commit subject and then against the PR itself.
 
 ---
 
