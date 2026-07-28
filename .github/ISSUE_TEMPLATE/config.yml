@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/filipstrand/mflux/issues
     about: For bugs in upstream mflux itself (not specific to the community build), report there.
   - name: Question / discussion
-    url: https://github.com/HowDidTheCatGetSoFat/mflux-cv/discussions
+    url: https://github.com/mflux-community/mflux-cv/discussions
     about: For usage questions and open-ended discussion.
