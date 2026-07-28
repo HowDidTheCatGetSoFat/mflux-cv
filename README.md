@@ -518,7 +518,9 @@ Written in this build:
 | Z-Image | ControlNet: Union (canny/mlsd/depth/hed/pose) | [@fxd0h](https://github.com/fxd0h) | mirrored upstream as [#482](https://github.com/filipstrand/mflux/pull/482) |
 | Krea 2 | ControlNet: Depth | [@fxd0h](https://github.com/fxd0h) | this build only, no upstream PR |
 | FLUX.1 | multi-ControlNet stacking | [@fxd0h](https://github.com/fxd0h) | this build only |
-| | training suite (DoRA, LR schedules, optimizers, LoRA alpha, grad clipping/accumulation) | [@fxd0h](https://github.com/fxd0h) | open upstream as #439-#452, #464, #465 |
+| | training suite (DoRA, LR schedules, optimizers, LoRA alpha, grad clipping/accumulation) | [@fxd0h](https://github.com/fxd0h) | open upstream as [#442](https://github.com/filipstrand/mflux/pull/442), [#447](https://github.com/filipstrand/mflux/pull/447), [#448](https://github.com/filipstrand/mflux/pull/448), [#449](https://github.com/filipstrand/mflux/pull/449), [#450](https://github.com/filipstrand/mflux/pull/450), [#451](https://github.com/filipstrand/mflux/pull/451), [#452](https://github.com/filipstrand/mflux/pull/452), [#464](https://github.com/filipstrand/mflux/pull/464) |
+| Ideogram 4 | LoRA inference fixes (uncond routing, fp8 bake, CFG truncation) | [@fxd0h](https://github.com/fxd0h) | open upstream as [#439](https://github.com/filipstrand/mflux/pull/439), [#440](https://github.com/filipstrand/mflux/pull/440), [#441](https://github.com/filipstrand/mflux/pull/441) |
+| Krea 2 | Raw variant, LoRA training, dynamic sigma schedule | [@fxd0h](https://github.com/fxd0h) | open upstream as [#462](https://github.com/filipstrand/mflux/pull/462), [#465](https://github.com/filipstrand/mflux/pull/465) |
 
 One caveat on the method, stated so nobody trusts it further than it deserves: a first-commit-in-directory
 lookup is wrong for anything introduced before #269, because that PR created the `src/mflux/models/`
