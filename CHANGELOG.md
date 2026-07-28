@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.29] - 2026-07-28
+
+### ✨ Improvements
+
+- **Faster SeedVR2 histogram matching**: the inverse permutation in `_hist_match` was built with `argsort(argsort(x))`, an O(n log n) sort standing in for what a single scatter gives in O(n). Measured on an M5 Max at 4M elements, roughly one channel of a 1080p frame: 880 ms → 17.3 ms per channel. Output is identical, including with repeated values where the stable-sort semantics could have broken. (#488, upstream PR by @Missing-Identity)
+
+### 📖 Documentation
+
+- **Contributors section**: an avatar grid of the people whose ports and fixes make up this build, over tables read out of the git history with every row linking its PR. Corrects three attributions that a hand-written table gets wrong: Krea 2 is @plz12345 (#453), Ideogram 4 is @omercelik (#433), ERNIE-Image is @azrahello (#417).
+- Writes up 0.18.27 and 0.18.28, which shipped to PyPI without a changelog entry or a GitHub release.
+- Package URLs now point at this repository. The PyPI page linked only to upstream, so there was no route from the package to the source of the build being installed.
+
+### 🏠 Project
+
+- The repository was transferred to the [mflux-community](https://github.com/mflux-community) organization. Stars, releases, issues and pull requests travelled with it, and the old URL is a permanent redirect for both web and git, so existing clones and `pip install git+` lines keep working.
+
 ## [Unreleased]
 
 ### 🎨 New Model Support
