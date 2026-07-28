@@ -32,6 +32,35 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.29-CV
+
+- **Faster SeedVR2 histogram matching** (#488, credited under [Community PRs pulled in](#community-prs-pulled-in)):
+  the inverse permutation was built with `argsort(argsort(x))`, an O(n log n) sort standing in for what a
+  single scatter gives in O(n). Measured on an M5 Max at 4M elements, roughly one channel of a 1080p frame:
+  **880 ms → 17.3 ms per channel**. Output is identical, checked with repeated values where the stable-sort
+  semantics could have broken.
+- **[Who wrote what](#-who-wrote-what)**: a new contributors section, an avatar grid of the fourteen people
+  whose ports and fixes make up this build, over tables read out of the git history with every row linking
+  its PR. Three attributions that a hand-written table gets wrong: Krea 2 is @plz12345's #453, Ideogram 4 is
+  @omercelik's #433, ERNIE-Image is @azrahello's #417.
+- **New home**: the repo was transferred to the [mflux-community](https://github.com/mflux-community) org.
+  Stars, releases, issues and pull requests all travelled with it, and the old URL is a permanent redirect
+  for both web and git, so existing clones and `pip install git+` lines keep working untouched.
+
+### 0.18.28-CV
+
+- Fixed a crash in the stepwise preview for models that do not take LoRA: the handler read `lora_paths`
+  off the model unconditionally, so asking for step images on FIBO ended the generation instead of
+  writing them.
+
+### 0.18.27-CV
+
+- **Mage Flow** (#483 by @ivanfioravanti, credited under [Community PRs pulled in](#community-prs-pulled-in)):
+  Microsoft's Mage Flow family, text-to-image and instruction edit, ported to MLX
+  (`mflux-generate-mage-flow`, `mflux-generate-mage-flow-edit`). Validated on turbo and on the RL/CFG
+  variants, both t2i and edit.
+- Allow `mlx` 0.32.x.
+
 ### 0.18.26-CV
 
 - **Z-Image Turbo Union ControlNet, native in MLX.** The first Z-Image ControlNet running in MLX, with
@@ -198,6 +227,14 @@ plus everything listed below.
   Qwen models to Qwen-Image-2512 and Qwen-Image-Edit-2511. Both validated generating end-to-end on Apple
   Silicon (identical architecture, drop-in). We diverged in one place: kept a separate `qwen-image-edit-2509`
   entry so `qwen-edit-2509` still resolves to the real 2509 weights instead of the new default.
+- **[filipstrand/mflux#483](https://github.com/filipstrand/mflux/pull/483) by Ivan Fioravanti** — new model
+  family: Mage Flow (Microsoft), text-to-image and instruction edit (`mflux-generate-mage-flow`,
+  `mflux-generate-mage-flow-edit`). Integrated onto this build with the shared-file conflict resolutions
+  and review fixes; validated on turbo and on the RL/CFG variants, both t2i and edit.
+- **[filipstrand/mflux#488](https://github.com/filipstrand/mflux/pull/488) by Unmilan Mukherjee** — build
+  the inverse permutation in SeedVR2's histogram matching with a scatter instead of a second sort. Verified
+  before integrating: identical output including with repeated values, and 880 ms → 17.3 ms per channel at
+  4M elements on an M5 Max.
 
 ### Krea 2 depth ControlNet
 

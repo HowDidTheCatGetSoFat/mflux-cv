@@ -14,7 +14,7 @@ source-exclude = [
 
 [project]
 name = "mflux-cv"
-version = "0.18.28"
+version = "0.18.29"
 description = "MLX native implementations of state-of-the-art generative image models."
 readme = "README.md"
 keywords = [
@@ -85,7 +85,10 @@ dev = [
 ]
 
 [project.urls]
-homepage = "https://github.com/filipstrand/mflux"
+homepage = "https://github.com/mflux-community/mflux-cv"
+upstream = "https://github.com/filipstrand/mflux"
+changelog = "https://github.com/mflux-community/mflux-cv#changelog-on-top-of-upstream-0180"
+issues = "https://github.com/mflux-community/mflux-cv/issues"
 
 [project.scripts]
 mflux-generate = "mflux.models.flux.cli.flux_generate:main"
