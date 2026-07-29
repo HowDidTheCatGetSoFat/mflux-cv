@@ -43,9 +43,12 @@ goes to their authors.
   whose ports and fixes make up this build, over tables read out of the git history with every row linking
   its PR. Three attributions that a hand-written table gets wrong: Krea 2 is @plz12345's #453, Ideogram 4 is
   @omercelik's #433, ERNIE-Image is @azrahello's #417.
-- **New home**: the repo was transferred to the [mflux-community](https://github.com/mflux-community) org.
-  Stars, releases, issues and pull requests all travelled with it, and the old URL is a permanent redirect
-  for both web and git, so existing clones and `pip install git+` lines keep working untouched.
+- **A move and a move back**: the repo spent a few hours in the [mflux-community](https://github.com/mflux-community)
+  org on the day this was released, and came back the same night while the question of who runs mflux is
+  still open. Both moves were transfers rather than forks, so stars, releases, issues and pull requests
+  travelled each time and every old URL still redirects for web and for git. Existing clones and
+  `pip install git+` lines were never affected. The package URLs shipped in 0.18.29 still name the org;
+  PyPI does not allow replacing a published version, so they are corrected from the next release on.
 
 ### 0.18.28-CV
 
