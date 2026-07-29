@@ -85,10 +85,10 @@ dev = [
 ]
 
 [project.urls]
-homepage = "https://github.com/mflux-community/mflux-cv"
+homepage = "https://github.com/HowDidTheCatGetSoFat/mflux-cv"
 upstream = "https://github.com/filipstrand/mflux"
-changelog = "https://github.com/mflux-community/mflux-cv#changelog-on-top-of-upstream-0180"
-issues = "https://github.com/mflux-community/mflux-cv/issues"
+changelog = "https://github.com/HowDidTheCatGetSoFat/mflux-cv#changelog-on-top-of-upstream-0180"
+issues = "https://github.com/HowDidTheCatGetSoFat/mflux-cv/issues"
 
 [project.scripts]
 mflux-generate = "mflux.models.flux.cli.flux_generate:main"
