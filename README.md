@@ -15,10 +15,10 @@ pip install mflux-cv
 To track a specific tag instead, or to pick up work that has not been released yet:
 
 ```bash
-pip install git+https://github.com/mflux-community/mflux-cv.git@v.0.18.25-CV
+pip install git+https://github.com/HowDidTheCatGetSoFat/mflux-cv.git@v.0.18.25-CV
 ```
 
-Wheels are also attached to every [Release](https://github.com/mflux-community/mflux-cv/releases).
+Wheels are also attached to every [Release](https://github.com/HowDidTheCatGetSoFat/mflux-cv/releases).
 
 > **Install this or upstream `mflux`, never both.** The distribution is named `mflux-cv` so it can
 > live on PyPI alongside upstream, though both provide the same `mflux` import package. With both
@@ -167,10 +167,8 @@ goes to their authors.
 - Repo automation: CodeQL security scanning, structured issue forms, and PR / issue auto-labeling.
 
 ### 0.18.15-CV
-First release under the `mflux-CV` name, then hosted at `HowDidTheCatGetSoFat/mflux-cv`. The repo has
-since been transferred to [mflux-community](https://github.com/mflux-community/mflux-cv), and the old
-URL redirects. Same codebase as the prior `+fxd0h` builds (0.18.1 through 0.18.5); this is the rebrand
-plus everything listed below.
+First release under the `mflux-CV` name. Same codebase as the prior `+fxd0h` builds (0.18.1 through
+0.18.5); this is the rebrand plus everything listed below.
 
 ### 0.18.5
 - **Krea 2 `--krea2-uncensor <k>`**: scales the text-fusion projector's refusal layers (tapped Qwen3-VL
@@ -504,7 +502,7 @@ The people whose work you run when you use this build:
 <sub>Z-Image and Krea 2 ControlNets<br>multi-ControlNet · training suite</sub>
 </td>
 <td align="center" width="150">
-<a href="https://github.com/mflux-community/mflux-cv/graphs/contributors"><img src="https://github.com/mflux-community.png?size=100" width="72" alt="everyone else"><br><b>everyone else</b></a><br>
+<a href="https://github.com/HowDidTheCatGetSoFat/mflux-cv/graphs/contributors"><img src="https://github.com/mflux-community.png?size=100" width="72" alt="everyone else"><br><b>everyone else</b></a><br>
 <sub>every contributor and tester<br>in the graph</sub>
 </td>
 </tr>
