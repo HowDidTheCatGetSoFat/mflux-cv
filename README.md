@@ -502,8 +502,8 @@ The people whose work you run when you use this build:
 <sub>Z-Image and Krea 2 ControlNets<br>multi-ControlNet · training suite</sub>
 </td>
 <td align="center" width="150">
-<a href="https://github.com/HowDidTheCatGetSoFat/mflux-cv/graphs/contributors"><img src="https://github.com/mflux-community.png?size=100" width="72" alt="everyone else"><br><b>everyone else</b></a><br>
-<sub>every contributor and tester<br>in the graph</sub>
+<a href="https://github.com/filipstrand/mflux/graphs/contributors"><b>everyone else</b></a><br>
+<sub>every contributor and tester<br>in the upstream graph</sub>
 </td>
 </tr>
 </table>
