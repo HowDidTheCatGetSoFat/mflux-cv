@@ -8,10 +8,8 @@ class QwenImageRMSNorm(nn.Module):
         self.eps = eps
         self.scale = float(num_channels) ** 0.5
         self.images = images
-        if images:
-            self.weight = mx.ones((num_channels, 1, 1))
-        else:
-            self.weight = mx.ones((num_channels, 1, 1, 1))
+        # Qwen VAE checkpoints store RMSNorm gamma as a one-dimensional tensor.
+        self.weight = mx.ones((num_channels,))
 
     def __call__(self, x: mx.array) -> mx.array:
         sum_sq = mx.sum(x * x, axis=1, keepdims=True)

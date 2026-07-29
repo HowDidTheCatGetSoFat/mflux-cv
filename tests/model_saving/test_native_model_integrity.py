@@ -10,6 +10,7 @@ from mflux.models.common.weights.loading.loaded_weights import LoadedWeights, Me
 from mflux.models.common.weights.loading.weight_applier import WeightApplier
 from mflux.models.common.weights.loading.weight_definition import ComponentDefinition
 from mflux.models.common.weights.saving.model_saver import ModelSaver
+from mflux.models.qwen.model.qwen_vae.qwen_image_rms_norm import QwenImageRMSNorm
 
 
 class _TinyWeightDefinition:
@@ -20,6 +21,23 @@ class _TinyWeightDefinition:
     @staticmethod
     def get_tokenizers():
         return []
+
+
+@pytest.mark.fast
+@pytest.mark.parametrize("images", [True, False])
+def test_qwen_rms_norm_accepts_native_weight_shape(images):
+    model = QwenImageRMSNorm(num_channels=4, images=images)
+    weights = LoadedWeights(
+        components={"vae": {"weight": mx.ones((4,))}},
+        meta_data=MetaData(mflux_version="test"),
+    )
+
+    WeightApplier.apply_and_quantize_single(
+        weights=weights,
+        model=model,
+        component=ComponentDefinition(name="vae", hf_subdir="vae"),
+        quantize_arg=None,
+    )
 
 
 @pytest.mark.fast
