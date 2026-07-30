@@ -172,8 +172,13 @@ class WeightApplier:
         target = dict(tree_flatten(model.parameters()))
         missing = sorted(target.keys() - source.keys())
         unexpected = sorted(source.keys() - target.keys())
+        # Zero-size targets are deferred allocations (Fp8Linear leaves large weights as
+        # empty arrays until update fills them); their shape carries no information to
+        # validate against, and a fill that never happens still fails loudly at forward.
         shape_mismatches = sorted(
-            key for key in source.keys() & target.keys() if source[key].shape != target[key].shape
+            key
+            for key in source.keys() & target.keys()
+            if target[key].size > 0 and source[key].shape != target[key].shape
         )
         if missing or unexpected or shape_mismatches:
             raise ValueError(

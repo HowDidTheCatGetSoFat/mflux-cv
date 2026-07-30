@@ -132,14 +132,10 @@ class Ideogram4(nn.Module):
         # patch-mosaic. (Verified: a known-good LoRA renders garbage at guidance>1 through the
         # unconditional path but clean at guidance=1; clean at full guidance with this routing.)
         # A LoRA is active either loaded from disk (self.lora_paths, possibly baked into the base
-        # weights) or injected in-place for training previews (LoRALinear/LoKr layers, lora_paths
-        # is None). Detect both so training previews use the same negative routing as inference.
-        has_lora = bool(getattr(self, "lora_paths", None))
-        if not has_lora and hasattr(self.conditional_transformer, "named_modules"):
-            has_lora = any(
-                isinstance(m, (LoRALinear, FusedLoRALinear, LoKrLinear))
-                for _, m in self.conditional_transformer.named_modules()
-            )
+        # weights), injected in-place for training previews (LoRALinear/LoKr layers, lora_paths
+        # is None), or baked into a native save (self.baked_lora, recorded by ModelSaver).
+        # Detect all three so every path uses the same negative routing.
+        has_lora = self._lora_is_active()
         uncond_transformer = self.conditional_transformer if has_lora else self.unconditional_transformer
         predict_unconditional = self._predict_unconditional(uncond_transformer)
         time_steps = config.time_steps
@@ -177,6 +173,16 @@ class Ideogram4(nn.Module):
             lora_paths=self.lora_paths,
             lora_scales=self.lora_scales,
             generation_time=time_steps.format_dict["elapsed"],
+        )
+
+    def _lora_is_active(self) -> bool:
+        if getattr(self, "lora_paths", None) or getattr(self, "baked_lora", None):
+            return True
+        if not hasattr(self.conditional_transformer, "named_modules"):
+            return False
+        return any(
+            isinstance(m, (LoRALinear, FusedLoRALinear, LoKrLinear))
+            for _, m in self.conditional_transformer.named_modules()
         )
 
     def save_model(self, base_path: str) -> None:

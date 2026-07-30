@@ -37,6 +37,7 @@ class ModelSaver:
             )
 
         ModelSaver._save_model_config(model=model, base_path=base_path)
+        ModelSaver._record_baked_lora(model=model, base_path=base_path)
 
         # Save tokenizers from model.tokenizers dict
         tokenizer_defs = weight_definition.get_tokenizers()
@@ -56,6 +57,25 @@ class ModelSaver:
                 # silently drops that layer's adaptation.
                 LoRASaver.bake_and_strip_lora(component, strict=True)
                 ModelSaver._save_weights(base_path, bits, component, subdir)
+
+    @staticmethod
+    def _record_baked_lora(model: Any, base_path: str) -> None:
+        # A save bakes any active LoRA into the base weights (bake_and_strip_lora below), so
+        # the checkpoint itself carries no trace that it is a LoRA model. Models that condition
+        # inference on an active LoRA (ideogram4 routes the CFG negative through the conditional
+        # transformer) need that fact to survive the save/load round-trip, so record it in the
+        # saved config.
+        lora_paths = list(getattr(model, "lora_paths", None) or [])
+        if not lora_paths:
+            return
+        Path(base_path).mkdir(parents=True, exist_ok=True)
+        config_path = Path(base_path) / ConfigResolution.SAVED_CONFIG_FILENAME
+        config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
+        config["baked_lora"] = {
+            "paths": [Path(p).name for p in lora_paths],
+            "scales": [float(s) for s in (getattr(model, "lora_scales", None) or [])],
+        }
+        config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
 
     @staticmethod
     def _save_model_config(model: Any, base_path: str) -> None:
