@@ -9,6 +9,7 @@ from mlx.utils import tree_map_with_path, tree_unflatten
 from mflux.callbacks.callback_registry import CallbackRegistry
 from mflux.models.common.config import ModelConfig
 from mflux.models.common.lora.mapping.lora_loader import LoRALoader
+from mflux.models.common.resolution.config_resolution import ConfigResolution
 from mflux.models.common.resolution.path_resolution import PathResolution
 from mflux.models.common.tokenizer import TokenizerLoader
 from mflux.models.common.weights.loading.loaded_weights import LoadedWeights
@@ -88,6 +89,13 @@ class Ideogram4Initializer:
         model.tiling_config = None
         model.lora_paths = None
         model.lora_scales = None
+        # A native save bakes any active LoRA into the conditional transformer and strips the
+        # wrappers, so nothing in the weights marks the model as a LoRA model; the saved config
+        # records it. CFG-negative routing (through the conditional transformer when a LoRA is
+        # active) must survive the save/load round-trip, or the clean unconditional negative
+        # amplifies the baked LoRA delta at full guidance.
+        saved_config = Ideogram4Initializer._load_json(model_path / ConfigResolution.SAVED_CONFIG_FILENAME)
+        model.baked_lora = saved_config.get("baked_lora") or None
 
     @staticmethod
     def _load_weights(model_path: Path) -> LoadedWeights:
@@ -172,7 +180,57 @@ class Ideogram4Initializer:
         model.update_modules(leaves)
 
     @staticmethod
+    def _rebuild_q8_folded_layers(module, tree) -> None:
+        """A native save can hold layers folded to MLX q8: baking a LoRA over an fp8 base
+        (LoRASaver.bake_and_strip_lora) dequantizes and requantizes the merged weight to
+        q8, so the checkpoint stores a packed 'weight' plus 'scales'/'biases'. Fp8Linear
+        cannot hold those tensors and the native-checkpoint validator rejects the load
+        (missing 'weight_scale', unexpected 'scales'/'biases'). Rebuild any such layer as
+        QuantizedLinear before validation, so mixed fp8/q8 checkpoints load. Original fp8
+        checkpoints carry 'weight_scale' instead of 'scales'/'biases' and are left
+        untouched."""
+        if isinstance(tree, list):
+            children = list(module) if hasattr(module, "__iter__") else []
+            for idx, sub in enumerate(tree):
+                if idx < len(children):
+                    Ideogram4Initializer._rebuild_q8_folded_layers(children[idx], sub)
+            return
+        if not isinstance(tree, dict):
+            return
+        for key, sub in tree.items():
+            if not isinstance(sub, (dict, list)):
+                continue
+            child = getattr(module, key, None)
+            if child is None and isinstance(module, dict):
+                child = module.get(key)
+            if child is None:
+                continue
+            if (
+                isinstance(sub, dict)
+                and "scales" in sub
+                and "biases" in sub
+                and "weight" in sub
+                and not isinstance(child, nn.QuantizedLinear)
+            ):
+                scales = sub["scales"]
+                output_dims = scales.shape[0]
+                input_dims = scales.shape[1] * 64
+                replacement = nn.QuantizedLinear(
+                    input_dims, output_dims, bias="bias" in sub, group_size=64, bits=8
+                )
+                if isinstance(module, dict):
+                    module[key] = replacement
+                else:
+                    setattr(module, key, replacement)
+            else:
+                Ideogram4Initializer._rebuild_q8_folded_layers(child, sub)
+
+    @staticmethod
     def _apply_weights(model, weights: LoadedWeights, quantize: int | None) -> None:
+        for name in ("conditional_transformer", "unconditional_transformer"):
+            tree = weights.components.get(name)
+            if tree:
+                Ideogram4Initializer._rebuild_q8_folded_layers(getattr(model, name), tree)
         model.bits = WeightApplier.apply_and_quantize(
             weights=weights,
             quantize_arg=quantize,
