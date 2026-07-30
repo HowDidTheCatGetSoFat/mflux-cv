@@ -32,6 +32,17 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.30-CV
+
+- **Fix: natively saved Qwen-VAE models could not be loaded back.** Any model saved with `mflux-save`
+  that uses the Qwen VAE (Qwen Image, Qwen Image Edit, Qwen-Image-Layered, and Krea 2 Turbo, Raw and
+  Depth) failed on load with a `shape_mismatches` error on five `decoder.mid_block.*` tensors.
+  `QwenImageRMSNorm` created its gamma with spatial trailing dimensions while the checkpoints store it
+  one-dimensional. That difference had been harmless since upstream #269, because the forward path
+  reshapes either form, until the native integrity check that arrived with Mage Flow turned it into a
+  hard load failure. Gamma now takes the checkpoint's shape, and output is bit-identical on the 4D
+  image and 5D video paths. Reported and fixed by [@fortinmike](https://github.com/fortinmike).
+
 ### 0.18.29-CV
 
 - **Faster SeedVR2 histogram matching** (#488, credited under [Community PRs pulled in](#community-prs-pulled-in)):
@@ -49,6 +60,9 @@ goes to their authors.
   travelled each time and every old URL still redirects for web and for git. Existing clones and
   `pip install git+` lines were never affected. The package URLs shipped in 0.18.29 still name the org;
   PyPI does not allow replacing a published version, so they are corrected from the next release on.
+
+<details>
+<summary><b>Older releases (0.18.1 to 0.18.28)</b></summary>
 
 ### 0.18.28-CV
 
@@ -201,6 +215,8 @@ First release under the `mflux-CV` name. Same codebase as the prior `+fxd0h` bui
   prior-preservation images; continue training from an existing LoRA; non-finite-step guard; utf-8-safe
   captions; free training-loss plot.
 - **Krea 2**: LoRA training, Raw variant, and diffusers-format loading.
+
+</details>
 
 ### Community PRs pulled in
 - **[filipstrand/mflux#459](https://github.com/filipstrand/mflux/pull/459) by Sahil Tanveer** — fix LoRA
@@ -505,11 +521,20 @@ The people whose work you run when you use this build:
 <sub>Z-Image and Krea 2 ControlNets<br>multi-ControlNet · training suite</sub>
 </td>
 <td align="center" width="150">
+<a href="https://github.com/fortinmike"><img src="https://github.com/fortinmike.png?size=100" width="72" alt="fortinmike"><br><b>Michaël Fortin</b></a><br>
+<sub>Qwen VAE native<br>save/load fix</sub>
+</td>
+</tr>
+<tr>
+<td align="center" width="150">
 <a href="https://github.com/filipstrand/mflux/graphs/contributors"><b>everyone else</b></a><br>
 <sub>every contributor and tester<br>in the upstream graph</sub>
 </td>
 </tr>
 </table>
+
+<details>
+<summary><b>The provenance behind that grid</b></summary>
 
 The provenance behind that grid, read out of the git history rather than filled in by hand. Dates are
 the **merge date of the PR that brought the work in**, which is months away from the model's own public
@@ -555,6 +580,7 @@ Written in this build:
 |---|---|---|---|
 | Z-Image | ControlNet: Union (canny/mlsd/depth/hed/pose) | [@fxd0h](https://github.com/fxd0h) | mirrored upstream as [#482](https://github.com/filipstrand/mflux/pull/482) |
 | Krea 2 | ControlNet: Depth | [@fxd0h](https://github.com/fxd0h) | this build only, no upstream PR |
+| Qwen VAE | native save/load shape fix | [@fortinmike](https://github.com/fortinmike) | [mflux-cv#33](https://github.com/HowDidTheCatGetSoFat/mflux-cv/pull/33) |
 | FLUX.1 | multi-ControlNet stacking | [@fxd0h](https://github.com/fxd0h) | this build only |
 | | training suite (DoRA, LR schedules, optimizers, LoRA alpha, grad clipping/accumulation) | [@fxd0h](https://github.com/fxd0h) | open upstream as [#442](https://github.com/filipstrand/mflux/pull/442), [#447](https://github.com/filipstrand/mflux/pull/447), [#448](https://github.com/filipstrand/mflux/pull/448), [#449](https://github.com/filipstrand/mflux/pull/449), [#450](https://github.com/filipstrand/mflux/pull/450), [#451](https://github.com/filipstrand/mflux/pull/451), [#452](https://github.com/filipstrand/mflux/pull/452), [#464](https://github.com/filipstrand/mflux/pull/464) |
 | Ideogram 4 | LoRA inference fixes (uncond routing, fp8 bake, CFG truncation) | [@fxd0h](https://github.com/fxd0h) | open upstream as [#439](https://github.com/filipstrand/mflux/pull/439), [#440](https://github.com/filipstrand/mflux/pull/440), [#441](https://github.com/filipstrand/mflux/pull/441) |
@@ -564,6 +590,8 @@ One caveat on the method, stated so nobody trusts it further than it deserves: a
 lookup is wrong for anything introduced before #269, because that PR created the `src/mflux/models/`
 layout and the lookup returns the restructure instead of the original work. Those rows were confirmed by
 commit subject and then against the PR itself.
+
+</details>
 
 ---
 
