@@ -70,12 +70,12 @@ class ModelSaver:
             return
         Path(base_path).mkdir(parents=True, exist_ok=True)
         config_path = Path(base_path) / ConfigResolution.SAVED_CONFIG_FILENAME
-        config = json.loads(config_path.read_text()) if config_path.exists() else {}
+        config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
         config["baked_lora"] = {
             "paths": [Path(p).name for p in lora_paths],
             "scales": [float(s) for s in (getattr(model, "lora_scales", None) or [])],
         }
-        config_path.write_text(json.dumps(config, indent=2))
+        config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
 
     @staticmethod
     def _save_model_config(model: Any, base_path: str) -> None:
