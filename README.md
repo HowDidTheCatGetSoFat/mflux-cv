@@ -32,6 +32,21 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.31-CV
+
+- **Fix: Ideogram 4 models saved with a LoRA could not be loaded back.** Baking a LoRA over the fp8
+  base folds the adapted layers to MLX q8, and the fresh `Fp8Linear` modules could neither hold the
+  folded tensors nor pass the native checkpoint validation, which also misread the deferred fp8
+  placeholders as shape mismatches. Folded layers are now rebuilt as `QuantizedLinear` before
+  validation and zero-size placeholders are exempt from the shape check.
+- **Fix: a reloaded Ideogram save generated with the wrong CFG negative.** Baking strips the LoRA
+  wrappers, so the reloaded model no longer knew it was a LoRA model and ran the empty prompt through
+  the clean unconditional transformer, which amplifies the baked LoRA at full guidance: the subject
+  holds but the prompt scene washes out. `mflux-save` now records the baked LoRA in
+  `mflux_model_config.json` and the loader keeps the negative routed through the conditional
+  transformer. A save/reload round-trip now reproduces the live-LoRA generation pixel-identically.
+  Older saves carry no marker; re-save them to pick up the routing.
+
 ### 0.18.30-CV
 
 - **Fix: natively saved Qwen-VAE models could not be loaded back.** Any model saved with `mflux-save`
@@ -42,6 +57,9 @@ goes to their authors.
   reshapes either form, until the native integrity check that arrived with Mage Flow turned it into a
   hard load failure. Gamma now takes the checkpoint's shape, and output is bit-identical on the 4D
   image and 5D video paths. Reported and fixed by [@fortinmike](https://github.com/fortinmike).
+
+<details>
+<summary><b>Older releases (0.18.1 to 0.18.29)</b></summary>
 
 ### 0.18.29-CV
 
@@ -60,9 +78,6 @@ goes to their authors.
   travelled each time and every old URL still redirects for web and for git. Existing clones and
   `pip install git+` lines were never affected. The package URLs shipped in 0.18.29 still name the org;
   PyPI does not allow replacing a published version, so they are corrected from the next release on.
-
-<details>
-<summary><b>Older releases (0.18.1 to 0.18.28)</b></summary>
 
 ### 0.18.28-CV
 

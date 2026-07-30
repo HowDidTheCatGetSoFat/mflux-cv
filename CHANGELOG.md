@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.31] - 2026-07-30
+
+### 🐛 Fixes
+
+- **Ideogram 4 models saved with a LoRA could not be loaded back**: baking a LoRA over the fp8 base folds the adapted layers to MLX q8, so the checkpoint stores a packed `weight` plus `scales`/`biases` for those layers. On reload the fresh `Fp8Linear` modules cannot hold those tensors and the native checkpoint validation rejected the save (missing `weight_scale`, unexpected `scales`/`biases`). The large fp8 layers also defer allocation until the weight update fills them, and the validator read those empty placeholders as shape mismatches. Folded layers are now rebuilt as `QuantizedLinear` before validation, and zero-size placeholders are exempt from the shape check; a fill that never happens still fails loudly in the `Fp8Linear` forward. (#35)
+- **A reloaded Ideogram save generated with the wrong CFG negative**: baking strips the LoRA wrappers, so nothing marked the checkpoint as a LoRA model and the empty prompt ran through the clean unconditional transformer. Full guidance then amplifies the baked LoRA delta: the subject holds but the prompt scene washes out. `mflux-save` now records the baked LoRA (file names and scales) in `mflux_model_config.json`, and the loader keeps the negative routed through the conditional transformer when the marker is present. A save/reload round-trip now reproduces the live-LoRA generation pixel-identically. Saves made before this release carry no marker, so re-save them to pick up the routing. (#35)
+
 ## [0.18.30] - 2026-07-30
 
 ### 🐛 Fixes
