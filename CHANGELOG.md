@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.30] - 2026-07-30
+
+### 🐛 Fixes
+
+- **Qwen VAE saved models could not be loaded back**: any natively saved Qwen-VAE model (Qwen Image, Qwen Image Edit, Qwen-Image-Layered, and Krea 2 Turbo, Raw and Depth) failed to load with a `shape_mismatches` error on five `decoder.mid_block.*` tensors. `QwenImageRMSNorm` initialized its gamma with spatial trailing dimensions while the checkpoints store it one-dimensional, a mismatch dating back to upstream #269. The native checkpoint integrity validation added with Mage Flow (#483) turned that latent difference into a hard load failure. Gamma is now initialized in the checkpoint's own shape; the forward path already reshaped either form, and output is bit-identical on both the 4D image and 5D video paths. (fix by @fortinmike)
+
 ## [0.18.29] - 2026-07-28
 
 ### ✨ Improvements
