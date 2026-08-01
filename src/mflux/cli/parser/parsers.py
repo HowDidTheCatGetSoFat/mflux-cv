@@ -92,6 +92,11 @@ def vae_tile_size(value: str) -> int:
 class CommandLineParser(argparse.ArgumentParser):
 
     def __init__(self, *args, **kwargs):
+        # Abbreviated long options (argparse's prefix matching) are rejected: option
+        # provision is detected by scanning argv (_option_was_provided), which cannot see
+        # abbreviations, and an abbreviation that is unambiguous today silently breaks
+        # the moment a new option shares its prefix.
+        kwargs.setdefault("allow_abbrev", False)
         super().__init__(*args, **kwargs)
         self.supports_metadata_config = False
         self.supports_image_generation = False
@@ -363,7 +368,7 @@ class CommandLineParser(argparse.ArgumentParser):
         # keep doing that themselves; this covers the option-is-a-no-op case.
         for option, reason in options_reasons.items():
             if CommandLineParser._option_was_provided(option):
-                warnings.warn(f"{option} is ignored; {reason}", stacklevel=1)
+                warnings.warn(f"{option} is ignored; {reason}", stacklevel=2)
 
     def _normalize_atomic_lora_args(self, namespace: argparse.Namespace) -> None:
         if not self.supports_lora or not hasattr(namespace, "lora") or namespace.lora is None:
