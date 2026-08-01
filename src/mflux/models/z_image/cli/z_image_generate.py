@@ -1,4 +1,5 @@
 import sys
+import warnings
 
 from mflux.callbacks.callback_manager import CallbackManager
 from mflux.cli.parser.parsers import CommandLineParser, lora_init_kwargs_from_args
@@ -21,6 +22,8 @@ def main():
     parser.add_image_to_image_arguments()
     parser.add_output_arguments()
     args = parser.parse_args()
+    if CommandLineParser._option_was_provided("--negative-prompt") and args.guidance is not None and args.guidance <= 1.0:
+        warnings.warn("--negative-prompt has no effect at --guidance <= 1.0; CFG is disabled.", stacklevel=1)
 
     if "--scheduler" not in sys.argv:
         args.scheduler = "flow_match_euler_discrete"

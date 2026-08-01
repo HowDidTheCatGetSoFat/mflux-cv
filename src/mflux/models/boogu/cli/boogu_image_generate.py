@@ -19,6 +19,12 @@ def main():
     parser.add_image_generator_arguments(supports_metadata_config=True)
     parser.add_output_arguments()
     args = parser.parse_args()
+    CommandLineParser.warn_ignored_options(
+        {
+            "--guidance": "Boogu Image Turbo is guidance-distilled; CFG is disabled.",
+            "--negative-prompt": "CFG is disabled on Boogu Image Turbo, so the negative prompt is never encoded.",
+        }
+    )
 
     model_config = ModelConfig.from_name(model_name=args.model or "boogu-image-turbo")
 

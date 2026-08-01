@@ -19,6 +19,12 @@ def main():
     parser.add_image_to_image_arguments(required=False)
     parser.add_output_arguments()
     args = parser.parse_args()
+    CommandLineParser.warn_ignored_options(
+        {
+            "--guidance": "Z-Image Turbo is guidance-distilled; guidance is forced to 0.0.",
+            "--negative-prompt": "CFG is disabled on Z-Image Turbo, so the negative prompt is never encoded.",
+        }
+    )
 
     # 1. Load the model
     model = ZImage(

@@ -1,4 +1,3 @@
-import warnings
 
 from mflux.callbacks.callback_manager import CallbackManager
 from mflux.cli.parser.parsers import CommandLineParser
@@ -40,10 +39,13 @@ def main():
     else:
         model_config = ModelConfig.ideogram4_fp8()
         model_path = args.model_path
-    if CommandLineParser._option_was_provided("--steps"):
-        warnings.warn("--steps is ignored; Ideogram 4 presets define the step count.", stacklevel=1)
-    if CommandLineParser._option_was_provided("--guidance"):
-        warnings.warn("--guidance is ignored; Ideogram 4 presets define the guidance schedule.", stacklevel=1)
+    CommandLineParser.warn_ignored_options(
+        {
+            "--steps": "Ideogram 4 presets define the step count.",
+            "--guidance": "Ideogram 4 presets define the guidance schedule.",
+            "--negative-prompt": "Ideogram 4's CFG negative is the empty prompt; a user negative is never encoded.",
+        }
+    )
 
     model = Ideogram4(
         model_config=model_config,
