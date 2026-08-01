@@ -267,6 +267,10 @@ class CommandLineParser(argparse.ArgumentParser):
         self.add_argument("--redux-image-paths", type=Path, nargs="*", required=True, help="Local path to the source image")
         self.add_argument("--redux-image-strengths", type=float, nargs="*", default=None, help="Strength values (between 0.0 and 1.0) for each reference image. Default is 1.0 for all images.")
 
+    def add_pid_decode_arguments(self) -> None:
+        self.add_argument("--pid-decode", action="store_true", help="Decode with NVIDIA PiD's pixel-diffusion super-resolving decoder instead of the standard VAE. First run downloads two separate Hugging Face checkpoints (~8GB total); google/gemma-2-2b-it is gated and requires accepting its license + `hf auth login`.")
+        self.add_argument("--pid-degrade-sigma", type=float, default=0.0, help="With --pid-decode, deliberately noise the latent to this flow-matching sigma before decoding (0.0-0.8). PiD's LQ gate was distilled on latents noised at sigma~U[0.0, 0.8]; a fully clean latent (the default, sigma=0.0) is the input it saw least during training, which can show up as over-textured detail invented on smooth areas like skin. Try 0.2 if you see that. Ignored without --pid-decode.")
+
     def add_output_arguments(self) -> None:
         self.add_argument("--metadata", action="store_true", help="Export image metadata as a JSON file.")
         self.add_argument("--saveinfo", action="store_true", help="Save with descriptive filename: Timestamp_Seed_S{Steps}_{LoRA}_{Scheduler}_{SigmaArgs}.png")
@@ -555,6 +559,12 @@ class CommandLineParser(argparse.ArgumentParser):
             if self.supports_image_outpaint:
                 if namespace.image_outpaint_padding is None:
                     namespace.image_outpaint_padding = prior_gen_metadata.get("image_outpaint_padding", None)
+
+            if hasattr(namespace, "pid_decode") and not self._option_was_provided("--pid-decode"):
+                namespace.pid_decode = prior_gen_metadata.get("pid_decode", False)
+
+            if hasattr(namespace, "pid_degrade_sigma") and not self._option_was_provided("--pid-degrade-sigma"):
+                namespace.pid_degrade_sigma = prior_gen_metadata.get("pid_degrade_sigma", 0.0)
 
         # Collapse the repeatable controlnet flags back to scalars for the ordinary single-controlnet
         # case. Runs after the metadata block, which relies on the unset (None) defaults.

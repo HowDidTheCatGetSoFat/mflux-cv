@@ -102,9 +102,18 @@ class CallbackManager:
         else:
             # Always evict text encoders after encoding — they are never needed post-encode
             # and keeping them wastes 8-12 GB throughout the denoising loop.
+            #
+            # With --pid-decode the transformer is dead weight the moment the loop ends: PidNet
+            # decodes, so neither the transformer nor the VAE is touched again. Holding it is not
+            # a speed/memory trade-off, it is a straight loss -- measured on Krea 2 at 512 -> 2048,
+            # holding vs evicting costs +349 MB of swap and takes PiD decode from 19.47s to 25.51s,
+            # because MLX's 48 GB peak demand no longer fits and the kernel starts paging. So don't
+            # make it wait for --low-ram, whose other effects (VAE tiling, 1 GB cache limit) buy
+            # nothing on a path that never calls the VAE.
+            keep_transformer = num_seeds > 1 or not getattr(args, "pid_decode", False)
             memory_saver = MemorySaver(
                 model=model,
-                keep_transformer=True,
+                keep_transformer=keep_transformer,
                 cache_limit_bytes=None,
                 args=args,
                 num_seeds=num_seeds,
