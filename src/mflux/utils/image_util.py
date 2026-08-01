@@ -7,6 +7,7 @@ import numpy as np
 import piexif
 import PIL.Image
 import PIL.ImageDraw
+import PIL.ImageOps
 from PIL._typing import StrOrBytesPath
 
 from mflux.models.common.config.config import Config
@@ -146,9 +147,14 @@ class ImageUtil:
     @staticmethod
     def load_image(image_or_path: PIL.Image.Image | StrOrBytesPath) -> PIL.Image.Image:
         if isinstance(image_or_path, PIL.Image.Image):
-            return image_or_path.convert("RGB")
+            image = image_or_path
         else:
-            return PIL.Image.open(image_or_path).convert("RGB")
+            image = PIL.Image.open(image_or_path)
+        # Apply the EXIF Orientation tag before the model sees the pixels: most photos straight
+        # off a phone carry a non-1 orientation, and without this the model is conditioned on a
+        # sideways image, not merely shown one.
+        image = PIL.ImageOps.exif_transpose(image)
+        return image.convert("RGB")
 
     @staticmethod
     def expand_image(
