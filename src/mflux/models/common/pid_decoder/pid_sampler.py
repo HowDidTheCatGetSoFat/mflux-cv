@@ -41,8 +41,13 @@ def sample(
         raise NotImplementedError("Only the validated 4-step schedule (STUDENT_T_LIST) is supported this phase.")
 
     B = lq_latent.shape[0]
-    mx.random.seed(seed)
-    x = mx.random.normal((B, 3, target_h, target_w))
+    # Explicit key threading, never mx.random.seed: reseeding the process-global RNG here
+    # would leak into every later unkeyed draw, so in a multi-seed run PiD-decoding image n
+    # changes the noise the base diffusion loop draws for image n+1. Same rule the
+    # degradation noise in pid_decoder.py already follows.
+    key = mx.random.key(seed)
+    key, subkey = mx.random.split(key)
+    x = mx.random.normal((B, 3, target_h, target_w), key=subkey)
     # Each tick lands after the step's mx.eval below, so it reflects real elapsed work
     # rather than the lazy graph being queued.
     progress = tqdm(total=num_steps, desc="PiD decode")
@@ -53,7 +58,8 @@ def sample(
         t_next = STUDENT_T_LIST[i + 1]
         v_pred = net(x, t_cur * timescale, caption_embs, lq_latent, sigma)
         x0_pred = _velocity_to_x0(x, v_pred, t_cur)
-        eps = mx.random.normal(x0_pred.shape)
+        key, subkey = mx.random.split(key)
+        eps = mx.random.normal(x0_pred.shape, key=subkey)
         x = (1.0 - t_next) * x0_pred + t_next * eps
         # Force evaluation per step -- matches every other sampling loop in this codebase
         # (e.g. ZImage.generate_image's mx.eval(latents) per diffusion step). Without this,
