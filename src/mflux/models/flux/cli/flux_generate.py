@@ -19,6 +19,9 @@ def main():
     parser.add_image_to_image_arguments(required=False)
     parser.add_output_arguments()
     args = parser.parse_args()
+    CommandLineParser.warn_ignored_options(
+        {"--negative-prompt": "FLUX.1 uses distilled guidance and has no negative branch."}
+    )
 
     if (args.base_model and "klein" in args.base_model.lower()) or (args.model and "flux2-klein" in args.model.lower()):
         parser.error("FLUX.2 Klein is not supported by mflux-generate. Use mflux-generate-flux2 instead.")

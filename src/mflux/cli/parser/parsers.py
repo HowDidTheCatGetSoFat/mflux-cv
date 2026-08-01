@@ -5,6 +5,7 @@ import random
 import sys
 import time
 import typing as t
+import warnings
 from pathlib import Path
 
 from mflux.cli.defaults import defaults as ui_defaults
@@ -353,6 +354,16 @@ class CommandLineParser(argparse.ArgumentParser):
                 if option.startswith("-") and not option.startswith("--") and len(option) == 2 and token.startswith(option) and token != option:
                     return True
         return False
+
+    @staticmethod
+    def warn_ignored_options(options_reasons: dict[str, str]) -> None:
+        # One policy for options a model cannot honour: keep accepting them so existing
+        # scripts do not break, but never drop them silently. Families that must
+        # hard-error on a contradictory VALUE (mage-flow requiring --guidance 1.0)
+        # keep doing that themselves; this covers the option-is-a-no-op case.
+        for option, reason in options_reasons.items():
+            if CommandLineParser._option_was_provided(option):
+                warnings.warn(f"{option} is ignored; {reason}", stacklevel=1)
 
     def _normalize_atomic_lora_args(self, namespace: argparse.Namespace) -> None:
         if not self.supports_lora or not hasattr(namespace, "lora") or namespace.lora is None:

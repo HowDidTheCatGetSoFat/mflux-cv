@@ -49,6 +49,12 @@ def main():
     # instead of the generic fallback when --model is omitted.
     parser.set_defaults(model="z-image-controlnet")
     args = parser.parse_args()
+    CommandLineParser.warn_ignored_options(
+        {
+            "--guidance": "Z-Image Turbo is guidance-distilled; guidance is forced to 0.0.",
+            "--negative-prompt": "CFG is disabled on Z-Image Turbo, so the negative prompt is never encoded.",
+        }
+    )
 
     model_config = ConfigResolution.resolve(args.model, args.base_model)
     if not model_config.controlnet_model:
