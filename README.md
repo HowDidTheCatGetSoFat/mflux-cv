@@ -32,6 +32,25 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.32-CV
+
+- **Fix: FLUX.2 CLIs discarded all image metadata.** `--metadata` wrote a sidecar JSON containing
+  literal `null`; both CLIs now route through the same save path as every other entry point.
+  Cherry-pick of upstream [#492](https://github.com/filipstrand/mflux/pull/492), fix by
+  [@plz12345](https://github.com/plz12345).
+- **Fix: EXIF orientation is applied when loading images.** Photos straight off a phone reached the
+  model sideways, and edit models are conditioned on the rotated pixels, so they produced wrong
+  output rather than output that merely needs a flip. Reported upstream as
+  [#495](https://github.com/filipstrand/mflux/issues/495).
+- **Fix: `--steps 1` crashed the shared flow-match scheduler.** The 1-step schedule is now the one
+  full-denoise Euler step the class's sibling paths already define; every other step count is
+  byte-identical. Reported upstream as [#494](https://github.com/filipstrand/mflux/issues/494).
+- **CLIs warn when an option the model cannot honour is dropped.** `--negative-prompt` on FLUX.1 and
+  Ideogram 4, `--guidance` and `--negative-prompt` on the guidance-distilled models, and the base
+  Z-Image case where an omitted `--guidance` (default 0.0) disables CFG and drops the negative
+  prompt. Options stay accepted so scripts keep working; the drop is just no longer silent.
+  Abbreviated long options are now rejected parser-wide.
+
 ### 0.18.31-CV
 
 - **Fix: Ideogram 4 models saved with a LoRA could not be loaded back.** Baking a LoRA over the fp8
@@ -47,6 +66,9 @@ goes to their authors.
   transformer. A save/reload round-trip now reproduces the live-LoRA generation pixel-identically.
   Older saves carry no marker; re-save them to pick up the routing.
 
+<details>
+<summary><b>Older releases (0.18.1 to 0.18.30)</b></summary>
+
 ### 0.18.30-CV
 
 - **Fix: natively saved Qwen-VAE models could not be loaded back.** Any model saved with `mflux-save`
@@ -57,9 +79,6 @@ goes to their authors.
   reshapes either form, until the native integrity check that arrived with Mage Flow turned it into a
   hard load failure. Gamma now takes the checkpoint's shape, and output is bit-identical on the 4D
   image and 5D video paths. Reported and fixed by [@fortinmike](https://github.com/fortinmike).
-
-<details>
-<summary><b>Older releases (0.18.1 to 0.18.29)</b></summary>
 
 ### 0.18.29-CV
 

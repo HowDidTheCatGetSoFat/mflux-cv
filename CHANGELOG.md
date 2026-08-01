@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.32] - 2026-08-01
+
+### 🐛 Fixes
+
+- **FLUX.2 CLIs discarded all image metadata**: both FLUX.2 CLIs called `ImageUtil.save_image(...)` without `metadata=`, so `--metadata` wrote a sidecar JSON containing literal `null`. They now route through `GeneratedImage.save(...)` like every other entry point, which embeds and exports the real parameters. Cherry-pick of upstream [#492](https://github.com/filipstrand/mflux/pull/492), fix by @plz12345. (#36)
+- **EXIF orientation is applied when loading images**: `ImageUtil.load_image` ignored the EXIF Orientation tag, so most photos straight off a phone reached the model sideways. The model is conditioned on the rotated pixels, so edit variants produced wrong output rather than correctly-oriented output that needs a flip. `exif_transpose` now runs on both the path and in-memory branches and strips the tag it applies, so a downstream save cannot double-rotate. Reported upstream as [#495](https://github.com/filipstrand/mflux/issues/495). (#37)
+- **`--steps 1` crashed FlowMatchEulerDiscreteScheduler**: the linear spacing divides by `(num_steps - 1)`, and guarding just that denominator moves the crash into `_stretch_to_terminal`, which would start denoising from nearly-clean noise. `num_steps == 1` now returns the 1-step schedule the class's sibling paths already define, sigmas `[1.0, 0.0]`, one full Euler step; every other step count is byte-identical, pinned by regression tests. Affected FLUX.2 Klein, FIBO, and Z-Image with guidance active. Reported upstream as [#494](https://github.com/filipstrand/mflux/issues/494). (#38)
+
+### ✨ Improvements
+
+- **CLIs warn when an option the model cannot honour is dropped**: the shared argparse exposes `--negative-prompt` and `--guidance` on every image CLI, but FLUX.1 reads the negative prompt and discards it unused, Ideogram 4 accepts the flag without a parameter for it, Z-Image Turbo overrides an explicit `--guidance` to 0.0 and never encodes the negative, and Boogu accepts both and passes neither. One policy now: the options stay accepted so existing scripts keep working, and the CLI says out loud what it is dropping. Warnings key on the effective post-resolution behavior, so `--model z-image-turbo` through the generic CLI and the omitted-`--guidance` default (0.0, CFG disabled) warn correctly. Abbreviated long options (argparse prefix matching, e.g. `--negative`) are now rejected parser-wide: the provision scan cannot see abbreviations, and an abbreviation that is unambiguous today breaks silently the moment a new option shares its prefix. (#39)
+
 ## [0.18.31] - 2026-07-30
 
 ### 🐛 Fixes
