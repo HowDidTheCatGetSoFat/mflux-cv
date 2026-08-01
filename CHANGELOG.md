@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.33] - 2026-08-01
+
+### 🎨 New Features
+
+- **NVIDIA PiD pixel-diffusion decoder (`--pid-decode`)**: replaces the VAE decode with NVIDIA's PiD, a 4x super-resolving re-render of the final latents, so a 512x512 generation decodes straight to 2048x2048. Wired on FLUX.1, FLUX.2 Klein, Qwen Image, Krea 2, ERNIE, Ideogram 4 and Z-Image (which shares Flux's latent space and uses its PiD checkpoint). Opt-in and off by default; the normal decode path is untouched. Weights download at runtime: one `model_ema_bf16.pth` per VAE family from `nvidia/PiD` plus `google/gemma-2-2b-it` (gated, accept the license once). `--pid-degrade-sigma` trades source fidelity for invented detail, and with `--pid-decode` the transformer is evicted the moment the denoising loop ends, which upstream measured as a straight win. From upstream [#490](https://github.com/filipstrand/mflux/pull/490) by @azrahello at its post-review state, with the degrade-sigma piece co-authored by @plz12345, who also verified it with real runs on five model families. Documented behaviors carried as-is: the 4x output re-draws rather than sharpens, portrait skin can over-texture, and flux2-checkpoint families show a small green drift with an upstream correction promised as follow-up. One deliberate divergence: the sampler threads explicit RNG keys instead of reseeding the global stream, so multi-seed runs stay reproducible with and without `--pid-decode`. (#40)
+
 ## [0.18.32] - 2026-08-01
 
 ### 🐛 Fixes

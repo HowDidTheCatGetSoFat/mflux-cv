@@ -32,6 +32,19 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.33-CV
+
+- **NVIDIA PiD pixel-diffusion decoder** (upstream [#490](https://github.com/filipstrand/mflux/pull/490)
+  by [@azrahello](https://github.com/azrahello), credited under
+  [Community PRs pulled in](#community-prs-pulled-in)): `--pid-decode` replaces the VAE decode with a
+  4x super-resolving re-render of the final latents, so a 512x512 generation decodes straight to
+  2048x2048. Wired on FLUX.1, FLUX.2 Klein, Qwen Image, Krea 2, ERNIE, Ideogram 4 and Z-Image.
+  Opt-in, off by default, normal decode untouched. Weights download at runtime (one checkpoint per
+  VAE family plus the gated `google/gemma-2-2b-it`). `--pid-degrade-sigma` trades source fidelity for
+  invented detail. The 4x output re-draws rather than sharpens; portraits can over-texture. One
+  deliberate divergence from the upstream branch: the sampler threads explicit RNG keys instead of
+  reseeding the global stream, so multi-seed runs stay reproducible with and without `--pid-decode`.
+
 ### 0.18.32-CV
 
 - **Fix: FLUX.2 CLIs discarded all image metadata.** `--metadata` wrote a sidecar JSON containing
@@ -51,6 +64,9 @@ goes to their authors.
   prompt. Options stay accepted so scripts keep working; the drop is just no longer silent.
   Abbreviated long options are now rejected parser-wide.
 
+<details>
+<summary><b>Older releases (0.18.1 to 0.18.31)</b></summary>
+
 ### 0.18.31-CV
 
 - **Fix: Ideogram 4 models saved with a LoRA could not be loaded back.** Baking a LoRA over the fp8
@@ -65,9 +81,6 @@ goes to their authors.
   `mflux_model_config.json` and the loader keeps the negative routed through the conditional
   transformer. A save/reload round-trip now reproduces the live-LoRA generation pixel-identically.
   Older saves carry no marker; re-save them to pick up the routing.
-
-<details>
-<summary><b>Older releases (0.18.1 to 0.18.30)</b></summary>
 
 ### 0.18.30-CV
 
