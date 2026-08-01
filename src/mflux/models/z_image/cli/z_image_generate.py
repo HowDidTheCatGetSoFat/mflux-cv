@@ -22,14 +22,30 @@ def main():
     parser.add_image_to_image_arguments()
     parser.add_output_arguments()
     args = parser.parse_args()
-    if CommandLineParser._option_was_provided("--negative-prompt") and args.guidance is not None and args.guidance <= 1.0:
-        warnings.warn("--negative-prompt has no effect at --guidance <= 1.0; CFG is disabled.", stacklevel=1)
 
     if "--scheduler" not in sys.argv:
         args.scheduler = "flow_match_euler_discrete"
 
     model_name = args.model or "z-image"
     model_config = ModelConfig.from_name(model_name=model_name)
+
+    # Warn on the EFFECTIVE behavior, not the flag value: --model may resolve to a
+    # guidance-distilled variant (guidance forced to 0.0 regardless of the flag), and on
+    # CFG-capable models the negative prompt is only encoded at guidance > 1.0, where an
+    # omitted --guidance defaults to 0.0.
+    if not model_config.supports_guidance:
+        CommandLineParser.warn_ignored_options(
+            {
+                "--guidance": f"{model_name} is guidance-distilled; guidance is forced to 0.0.",
+                "--negative-prompt": f"CFG is disabled on {model_name}, so the negative prompt is never encoded.",
+            }
+        )
+    elif CommandLineParser._option_was_provided("--negative-prompt") and (args.guidance is None or args.guidance <= 1.0):
+        warnings.warn(
+            "--negative-prompt has no effect: CFG is disabled at guidance <= 1.0, and the default guidance is 0.0."
+            " Pass --guidance above 1.0 to enable it.",
+            stacklevel=1,
+        )
 
     # 1. Load the model
     model = ZImage(
