@@ -50,11 +50,12 @@ class Flux2VAE(nn.Module):
         if packed_latents.ndim == 5:
             packed_latents = packed_latents[:, :, 0, :, :]
         # Latents already fully unpacked (channel count != the patchified bn dim) come from a latent
-        # creator that denorms + unpatchifies itself — e.g. Ideogram 4, which shares this VAE but calls
-        # vae.decode() directly. The bn-denorm + unpatchify below is only for the flux2 packed form, so
-        # decode such latents as-is instead of crashing on the shape mismatch.
+        # creator that denorms + unpatchifies itself — e.g. Ideogram 4, which shares this VAE. The
+        # bn-denorm + unpatchify below is only for the flux2 packed form, so such latents ARE already
+        # the plain VAE latent this method promises: return them unchanged. Returning decoded pixels
+        # here would make decode_packed_latents decode twice and crash the Ideogram stepwise preview.
         if packed_latents.shape[1] != self.bn.running_mean.shape[0]:
-            return self.decode(packed_latents)
+            return packed_latents
         bn_mean = self.bn.running_mean.reshape(1, -1, 1, 1)
         bn_std = mx.sqrt(self.bn.running_var.reshape(1, -1, 1, 1) + self.bn.eps)
         return self._unpatchify_latents(packed_latents * bn_std + bn_mean)
