@@ -12,6 +12,7 @@ class Flux2VAE(nn.Module):
     scaling_factor: float = 1.0
     shift_factor: float = 0.0
     latent_channels: int = 32
+    pid_variant = "flux2"  # see PID_CHECKPOINT_VARIANTS
 
     def __init__(self):
         super().__init__()
@@ -42,20 +43,25 @@ class Flux2VAE(nn.Module):
         decoded = self.decoder(latents)
         return decoded
 
-    def decode_packed_latents(self, packed_latents: mx.array, tiling_config: TilingConfig | None = None) -> mx.array:
+    def unpack_packed_latents(self, packed_latents: mx.array) -> mx.array:
+        """De-normalize and unpatchify the transformer's packed latents into the plain
+        [B, 32, H/8, W/8] VAE latent. Split out of `decode_packed_latents` so alternative
+        decoders (PiD) can be handed the same tensor `decode` receives."""
         if packed_latents.ndim == 5:
             packed_latents = packed_latents[:, :, 0, :, :]
         # Latents already fully unpacked (channel count != the patchified bn dim) come from a latent
-        # creator that denorms + unpatchifies itself — e.g. Ideogram 4, which shares this VAE but calls
-        # vae.decode() directly. The bn-denorm + unpatchify below is only for the flux2 packed form, so
-        # decode such latents as-is instead of crashing on the shape mismatch.
+        # creator that denorms + unpatchifies itself — e.g. Ideogram 4, which shares this VAE. The
+        # bn-denorm + unpatchify below is only for the flux2 packed form, so such latents ARE already
+        # the plain VAE latent this method promises: return them unchanged. Returning decoded pixels
+        # here would make decode_packed_latents decode twice and crash the Ideogram stepwise preview.
         if packed_latents.shape[1] != self.bn.running_mean.shape[0]:
-            return self.decode(packed_latents)
+            return packed_latents
         bn_mean = self.bn.running_mean.reshape(1, -1, 1, 1)
         bn_std = mx.sqrt(self.bn.running_var.reshape(1, -1, 1, 1) + self.bn.eps)
-        latents = packed_latents * bn_std + bn_mean
-        latents = self._unpatchify_latents(latents)
-        return VAEUtil.decode(vae=self, latent=latents, tiling_config=tiling_config)
+        return self._unpatchify_latents(packed_latents * bn_std + bn_mean)
+
+    def decode_packed_latents(self, packed_latents: mx.array, tiling_config: TilingConfig | None = None) -> mx.array:
+        return VAEUtil.decode(vae=self, latent=self.unpack_packed_latents(packed_latents), tiling_config=tiling_config)
 
     @staticmethod
     def _unpatchify_latents(latents: mx.array) -> mx.array:

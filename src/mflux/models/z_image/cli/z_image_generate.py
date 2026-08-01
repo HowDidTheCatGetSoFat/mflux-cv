@@ -20,6 +20,7 @@ def main():
     parser.add_lora_arguments()
     parser.add_image_generator_arguments(supports_metadata_config=True, supports_dimension_scale_factor=True)
     parser.add_image_to_image_arguments()
+    parser.add_pid_decode_arguments()
     parser.add_output_arguments()
     args = parser.parse_args()
 
@@ -86,6 +87,8 @@ def main():
                 shift=args.shift,
                 mcf_max_change=args.mcf_max_change,
                 sigma_schedule=args.sigma_schedule,
+                pid_decode=args.pid_decode,
+                pid_degrade_sigma=args.pid_degrade_sigma,
             )
             # 4. Save the image
             output_path = build_saveinfo_filename(args, seed) if args.saveinfo else args.output.format(seed=seed)
