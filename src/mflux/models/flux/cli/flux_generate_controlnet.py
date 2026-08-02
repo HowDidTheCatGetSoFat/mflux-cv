@@ -13,6 +13,12 @@ from mflux.utils.prompt_util import PromptUtil
 IGNORED_OPTIONS = {
     "--negative-prompt": "FLUX.1 uses distilled guidance and has no negative branch.",
 }
+CONDITIONAL_OPTIONS = {
+    "--guidance": {
+        "condition": "the resolved model supports guidance (dev does; schnell does not)",
+        "reason": "schnell builds no guidance embedder, so the value has no path to affect the output.",
+    },
+}
 
 
 def build_parser() -> CommandLineParser:
@@ -35,9 +41,13 @@ def main():
     if args.guidance is None:
         args.guidance = ui_defaults.GUIDANCE_SCALE
 
+    model_config = _get_controlnet_model_config(args.model)
+    if not model_config.supports_guidance:
+        CommandLineParser.warn_ignored_options({"--guidance": CONDITIONAL_OPTIONS["--guidance"]["reason"]})
+
     # 1. Load the model
     flux = Flux1Controlnet(
-        model_config=_get_controlnet_model_config(args.model),
+        model_config=model_config,
         quantize=args.quantize,
         model_path=args.model_path,
         controlnet_paths=args.controlnet_path,

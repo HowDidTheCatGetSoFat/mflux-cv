@@ -60,6 +60,8 @@ def _jsonable(value: Any) -> Any:
         return value
     if isinstance(value, (list, tuple)):
         return [_jsonable(v) for v in value]
+    if isinstance(value, dict):
+        return {str(k): _jsonable(v) for k, v in value.items()}
     return str(value)
 
 
