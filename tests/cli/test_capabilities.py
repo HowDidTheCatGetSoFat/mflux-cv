@@ -123,6 +123,8 @@ def test_controlnet_guidance_is_conditional_on_the_resolved_model(caps):
     command = next(c for c in caps["commands"] if c["command"] == "mflux-generate-controlnet")
     option = next(o for o in command["options"] if o["flag"] == "--guidance")
     assert option["status"] == "conditional"
+    assert "schnell" in option["condition"]
+    assert option["reason"]
 
 
 @pytest.mark.fast
@@ -131,4 +133,7 @@ def test_jsonable_preserves_mappings():
     from pathlib import Path
 
     assert capabilities._jsonable({"width": 1024, "p": Path("x")}) == {"width": 1024, "p": "x"}
+    assert capabilities._jsonable({1: {"p": Path("x")}}) == {"1": {"p": "x"}}
     assert capabilities._jsonable([Path("a"), 2]) == ["a", 2]
+    with pytest.raises(ValueError, match="loses keys"):
+        capabilities._jsonable({1: "a", "1": "b"})

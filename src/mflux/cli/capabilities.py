@@ -61,7 +61,11 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_jsonable(v) for v in value]
     if isinstance(value, dict):
-        return {str(k): _jsonable(v) for k, v in value.items()}
+        normalized = {str(k): _jsonable(v) for k, v in value.items()}
+        if len(normalized) != len(value):
+            # {1: "a", "1": "b"} would silently publish an incomplete record.
+            raise ValueError(f"parser default mapping loses keys when stringified: {sorted(map(str, value))}")
+        return normalized
     return str(value)
 
 
