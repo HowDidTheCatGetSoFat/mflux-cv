@@ -28,6 +28,15 @@ class ConfigResolution:
         from mflux.models.common.config.model_config import AVAILABLE_MODELS, ModelConfig
         from mflux.utils.exceptions import InvalidBaseModel, ModelConfigError
 
+        # `--base-model schnell` with no custom checkpoint asks for the base model itself.
+        # Without this, the explicit-base rule builds a config whose model_name is None,
+        # and every initializer that reads model_config.model_name fails to resolve a
+        # weights path, surfacing as a misleading per-component error far from the cause.
+        # Promoting the alias makes from_name yield the same config shape whichever
+        # keyword named the model.
+        if model_name is None and base_model is not None:
+            model_name = base_model
+
         if base_model is None:
             try:
                 base_model = ConfigResolution._read_saved_base_model(model_name)
