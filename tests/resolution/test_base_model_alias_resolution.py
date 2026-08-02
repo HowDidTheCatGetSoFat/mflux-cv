@@ -25,8 +25,7 @@ def test_both_keywords_yield_the_same_shape():
     # Whichever keyword names the model, the resolved config must look the same.
     by_model = ModelConfig.from_name(model_name="schnell", base_model=None)
     by_base = ModelConfig.from_name(model_name=None, base_model="schnell")
-    assert by_base.model_name == by_model.model_name
-    assert by_base.supports_guidance == by_model.supports_guidance
+    assert vars(by_base) == vars(by_model)
 
 
 @pytest.mark.fast

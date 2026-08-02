@@ -66,7 +66,11 @@ class WeightLoader:
         # that component, when nothing was ever resolved to load from. Say so once, up
         # front. Definitions whose every component ships a URL (DepthPro) still work
         # without a root path.
-        if root_path is None and any(c.download_url is None for c in weight_definition.get_components()):
+        # A component satisfied by a per-component path override needs no root path either.
+        if root_path is None and any(
+            c.download_url is None and not (path_overrides and c.name in path_overrides)
+            for c in weight_definition.get_components()
+        ):
             raise ValueError(
                 f"No weights location for {getattr(weight_definition, '__name__', weight_definition)}: "
                 f"model_path was not given and the model config resolved no model_name, so there is "
