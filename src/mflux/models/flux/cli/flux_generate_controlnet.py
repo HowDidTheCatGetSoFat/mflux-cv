@@ -8,6 +8,13 @@ from mflux.utils.exceptions import PromptFileReadError, StopImageGenerationExcep
 from mflux.utils.prompt_util import PromptUtil
 
 
+# Single source of truth for options this CLI accepts but cannot honour: the runtime
+# warning and the mflux-capabilities dump both read it.
+IGNORED_OPTIONS = {
+    "--negative-prompt": "FLUX.1 uses distilled guidance and has no negative branch.",
+}
+
+
 def build_parser() -> CommandLineParser:
     parser = CommandLineParser(description="Generate an image based on a prompt and a controlnet reference image.")  # fmt: off
     parser.add_general_arguments()
@@ -22,6 +29,7 @@ def build_parser() -> CommandLineParser:
 def main():
     parser = build_parser()
     args = parser.parse_args()
+    CommandLineParser.warn_ignored_options(IGNORED_OPTIONS)
 
     # 0. Set default guidance value if not provided by user
     if args.guidance is None:

@@ -70,3 +70,38 @@ def test_json_output_is_valid(monkeypatch, capsys):
     assert len(dumped["commands"]) == 1
     assert dumped["commands"][0]["command"] == "mflux-generate-z-image-turbo"
     assert dumped["commands"][0]["coverage"] == "full"
+
+
+@pytest.mark.fast
+def test_full_dump_serializes_to_every_format(caps):
+    # A parser default that is not JSON-native (qwen-layered's Path --output-dir)
+    # truncated the streamed JSON mid-value; defaults are normalized at record-build
+    # time so every wire format serializes the whole document.
+    text = json.dumps(caps)
+    assert text.endswith("}")
+    for command in caps["commands"]:
+        for option in command["options"]:
+            default = option["parser_default"]
+            assert default is None or isinstance(default, (str, int, float, bool, list)), (
+                f"{command['command']} {option['flag']} default is {type(default).__name__}"
+            )
+
+
+@pytest.mark.fast
+def test_flux_family_negative_prompt_gaps_are_declared(caps):
+    # The controlnet and depth variants never read negative_prompt (zero mentions in
+    # their variant trees), same as the base FLUX.1 CLI that already declared it.
+    for command_name in ("mflux-generate-controlnet", "mflux-generate-depth"):
+        command = next(c for c in caps["commands"] if c["command"] == command_name)
+        option = next(o for o in command["options"] if o["flag"] == "--negative-prompt")
+        assert option["status"] == "ignored", command_name
+
+
+@pytest.mark.fast
+def test_flux_guidance_is_conditional_on_the_resolved_model(caps):
+    # dev honours --guidance; schnell has supports_guidance=False and builds no
+    # guidance embedder, so the same CLI gives two answers keyed on --base-model.
+    command = next(c for c in caps["commands"] if c["command"] == "mflux-generate")
+    option = next(o for o in command["options"] if o["flag"] == "--guidance")
+    assert option["status"] == "conditional"
+    assert "schnell" in option["condition"]
