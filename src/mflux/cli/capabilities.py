@@ -5,7 +5,10 @@ Self-healing by construction, with no hand-maintained registry to rot:
 - Commands are discovered from the installed console scripts (importlib.metadata), so a
   new CLI appears in the dump the moment it is wired into pyproject.
 - Accepted options, defaults, types and help come from each CLI's live ``build_parser()``,
-  so the dump can never list an option the parser no longer takes.
+  so the dump can never list an option the parser no longer takes. The reported default is
+  the PARSER default: several CLIs derive the effective value after parsing (sometimes per
+  model), and the dump does not claim what it cannot introspect; declared runtime defaults
+  are schema-v2 material.
 - The honoured/ignored classification is read from the same module-level
   ``IGNORED_OPTIONS`` / ``CONDITIONAL_OPTIONS`` constants the runtime warnings use, so the
   dump and the warnings cannot disagree.
@@ -17,10 +20,9 @@ place the runtime also reads. Nothing here is transcribed by hand.
 """
 
 import argparse
-import importlib
+import importlib.metadata
 import json
 import sys
-from importlib import metadata
 from typing import Any
 
 SCHEMA_VERSION = 1
@@ -32,7 +34,7 @@ COMMAND_PREFIXES = ("mflux-generate",)
 
 def discover_commands() -> list[tuple[str, str]]:
     """(command, module) pairs from the installed entry points, sorted by command."""
-    entry_points = metadata.entry_points()
+    entry_points = importlib.metadata.entry_points()
     scripts = entry_points.select(group="console_scripts")
     found = []
     for entry_point in scripts:
@@ -56,7 +58,7 @@ def _describe_option(action: argparse.Action, ignored: dict, conditional: dict) 
     record: dict[str, Any] = {
         "flag": flag,
         "type": _option_type_name(action),
-        "default": action.default if action.default is not argparse.SUPPRESS else None,
+        "parser_default": action.default if action.default is not argparse.SUPPRESS else None,
         "status": "honored",
     }
     if action.option_strings and len(action.option_strings) > 1:
@@ -131,16 +133,16 @@ def describe_command(command: str, module_path: str) -> dict[str, Any]:
 def build_capabilities() -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
-        "mflux_version": metadata.version("mflux-cv") if _dist_exists("mflux-cv") else metadata.version("mflux"),
+        "mflux_version": importlib.metadata.version("mflux-cv") if _dist_exists("mflux-cv") else importlib.metadata.version("mflux"),
         "commands": [describe_command(command, module) for command, module in discover_commands()],
     }
 
 
 def _dist_exists(name: str) -> bool:
     try:
-        metadata.version(name)
+        importlib.metadata.version(name)
         return True
-    except metadata.PackageNotFoundError:
+    except importlib.metadata.PackageNotFoundError:
         return False
 
 
@@ -159,7 +161,7 @@ def _to_markdown(capabilities: dict[str, Any]) -> str:
             notes = opt.get("reason", "")
             if opt["status"] == "conditional":
                 notes = f"honoured when {opt['condition']}. {opt.get('reason', '')}".strip()
-            default = "" if opt["default"] is None else repr(opt["default"])
+            default = "" if opt["parser_default"] is None else repr(opt["parser_default"])
             lines.append(f"| `{opt['flag']}` | {opt['type']} | {default} | {opt['status']} | {notes} |")
         lines.append("")
     return "\n".join(lines)
@@ -185,7 +187,8 @@ def main() -> None:
             import yaml
         except ImportError:
             parser.error("--format yaml needs PyYAML installed; JSON needs nothing.")
-        yaml.safe_dump(capabilities, sys.stdout, sort_keys=False)
+        else:
+            yaml.safe_dump(capabilities, sys.stdout, sort_keys=False)
     else:
         sys.stdout.write(_to_markdown(capabilities))
 

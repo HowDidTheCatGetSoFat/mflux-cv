@@ -44,12 +44,13 @@ def test_option_records_are_well_formed(caps):
             if option["status"] == "ignored":
                 assert option["reason"]
             if option["status"] == "conditional":
-                assert option["condition"] and option["reason"]
+                assert option["condition"]
+                assert option["reason"]
 
 
 @pytest.mark.fast
 def test_known_statuses_survive(caps):
-    def status_of(command_name, flag):
+    def status_of(command_name: str, flag: str) -> dict:
         command = next(c for c in caps["commands"] if c["command"] == command_name)
         return next(o for o in command["options"] if o["flag"] == flag)
 
@@ -67,4 +68,5 @@ def test_json_output_is_valid(monkeypatch, capsys):
     dumped = json.loads(capsys.readouterr().out)
     assert dumped["schema_version"] == capabilities.SCHEMA_VERSION
     assert len(dumped["commands"]) == 1
+    assert dumped["commands"][0]["command"] == "mflux-generate-z-image-turbo"
     assert dumped["commands"][0]["coverage"] == "full"

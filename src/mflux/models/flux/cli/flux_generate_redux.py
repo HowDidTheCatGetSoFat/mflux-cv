@@ -10,7 +10,7 @@ from mflux.utils.prompt_util import PromptUtil
 
 
 def build_parser() -> CommandLineParser:
-    parser = CommandLineParser(description="Generate an image using the fill tool to complete masked areas.")
+    parser = CommandLineParser(description="Generate an image variation guided by Redux reference images.")
     parser.add_general_arguments()
     parser.add_model_arguments(require_model_arg=False)
     parser.add_lora_arguments()
