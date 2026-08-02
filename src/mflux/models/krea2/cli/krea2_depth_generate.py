@@ -12,8 +12,7 @@ DEFAULT_STEPS = 8
 DEFAULT_GUIDANCE = 1.0
 
 
-def main():
-    # 0. Parse command line arguments
+def build_parser() -> CommandLineParser:
     parser = CommandLineParser(description="Generate an image using Krea-2 with a depth ControlNet.")
     parser.add_general_arguments()
     parser.add_model_arguments(require_model_arg=False)
@@ -40,6 +39,12 @@ def main():
         help="Scale the text-fusion projector's refusal layers (tapped Qwen3-VL 9/10/11). "
         "1.0 = default; ~6.0 neutralises Krea 2's content refusal. Applied once at load.",
     )
+    return parser
+
+
+def main():
+    # 0. Parse command line arguments
+    parser = build_parser()
     args = parser.parse_args()
 
     # 1. Load the model

@@ -37,7 +37,15 @@ def _parse_control_spec(spec: str) -> ControlSpec:
     return ControlSpec(type=ControlType(type_str), image_path=Path(image_path), strength=strength)
 
 
-def main():
+# Single source of truth for options this CLI accepts but cannot honour: the runtime
+# warning and the mflux-capabilities dump both read it.
+IGNORED_OPTIONS = {
+    "--guidance": "Z-Image Turbo is guidance-distilled; guidance is forced to 0.0.",
+    "--negative-prompt": "CFG is disabled on Z-Image Turbo, so the negative prompt is never encoded.",
+}
+
+
+def build_parser() -> CommandLineParser:
     parser = CommandLineParser(description="Generate an image using Z-Image Turbo + ControlNet Union.")
     parser.add_general_arguments()
     parser.add_model_arguments(require_model_arg=False)
@@ -48,13 +56,13 @@ def main():
     # Default to the Union ControlNet model so step-count normalization resolves to its 8 steps
     # instead of the generic fallback when --model is omitted.
     parser.set_defaults(model="z-image-controlnet")
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
-    CommandLineParser.warn_ignored_options(
-        {
-            "--guidance": "Z-Image Turbo is guidance-distilled; guidance is forced to 0.0.",
-            "--negative-prompt": "CFG is disabled on Z-Image Turbo, so the negative prompt is never encoded.",
-        }
-    )
+    CommandLineParser.warn_ignored_options(IGNORED_OPTIONS)
 
     model_config = ConfigResolution.resolve(args.model, args.base_model)
     if not model_config.controlnet_model:

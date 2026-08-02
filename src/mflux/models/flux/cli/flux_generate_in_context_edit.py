@@ -11,8 +11,7 @@ from mflux.models.flux.variants.in_context.utils.in_context_loras import IC_EDIT
 from mflux.utils.exceptions import PromptFileReadError, StopImageGenerationException
 
 
-def main():
-    # 0. Parse command line arguments
+def build_parser() -> CommandLineParser:
     parser = CommandLineParser(description="Generate images using in-context editing.")
     parser.add_general_arguments()
     parser.add_model_arguments(require_model_arg=False)
@@ -21,6 +20,11 @@ def main():
     parser.add_in_context_edit_arguments()
     parser.add_in_context_arguments()
     parser.add_output_arguments()
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
 
     # 0. Default to a higher guidance value for fill related tasks.
