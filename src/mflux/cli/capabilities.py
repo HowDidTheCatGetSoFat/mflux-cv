@@ -53,12 +53,22 @@ def _option_type_name(action: argparse.Action) -> str:
     return getattr(action.type, "__name__", str(action.type))
 
 
+def _jsonable(value: Any) -> Any:
+    """Parser defaults are arbitrary Python (Path, enums); the dump is a wire format.
+    Normalize at record-build time so every output format serializes the same value."""
+    if isinstance(value, (str, int, float, bool, type(None))):
+        return value
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(v) for v in value]
+    return str(value)
+
+
 def _describe_option(action: argparse.Action, ignored: dict, conditional: dict) -> dict[str, Any]:
     flag = max(action.option_strings, key=len)
     record: dict[str, Any] = {
         "flag": flag,
         "type": _option_type_name(action),
-        "parser_default": action.default if action.default is not argparse.SUPPRESS else None,
+        "parser_default": _jsonable(action.default) if action.default is not argparse.SUPPRESS else None,
         "status": "honored",
     }
     if action.option_strings and len(action.option_strings) > 1:
@@ -180,8 +190,10 @@ def main() -> None:
             parser.error(f"unknown command {args.command!r}; run without --command to list all")
 
     if args.format == "json":
-        json.dump(capabilities, sys.stdout, indent=2)
-        sys.stdout.write("\n")
+        # Serialize to a string BEFORE writing: json.dump streams, so a late
+        # serialization error would leave a truncated document on stdout that a
+        # redirecting consumer then parses as garbage.
+        sys.stdout.write(json.dumps(capabilities, indent=2) + "\n")
     elif args.format == "yaml":
         try:
             import yaml
