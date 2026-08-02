@@ -91,7 +91,16 @@ def test_full_dump_serializes_to_every_format(caps):
 def test_flux_family_negative_prompt_gaps_are_declared(caps):
     # The controlnet and depth variants never read negative_prompt (zero mentions in
     # their variant trees), same as the base FLUX.1 CLI that already declared it.
-    for command_name in ("mflux-generate-controlnet", "mflux-generate-depth"):
+    for command_name in (
+        "mflux-generate-controlnet",
+        "mflux-generate-depth",
+        "mflux-generate-fill",
+        "mflux-generate-redux",
+        "mflux-generate-kontext",
+        "mflux-generate-in-context",
+        "mflux-generate-in-context-catvton",
+        "mflux-generate-in-context-edit",
+    ):
         command = next(c for c in caps["commands"] if c["command"] == command_name)
         option = next(o for o in command["options"] if o["flag"] == "--negative-prompt")
         assert option["status"] == "ignored", command_name
@@ -105,3 +114,21 @@ def test_flux_guidance_is_conditional_on_the_resolved_model(caps):
     option = next(o for o in command["options"] if o["flag"] == "--guidance")
     assert option["status"] == "conditional"
     assert "schnell" in option["condition"]
+
+
+@pytest.mark.fast
+def test_controlnet_guidance_is_conditional_on_the_resolved_model(caps):
+    # --model schnell resolves to schnell_controlnet_canny (supports_guidance=False),
+    # same shape as the base CLI: two answers keyed on the model flag.
+    command = next(c for c in caps["commands"] if c["command"] == "mflux-generate-controlnet")
+    option = next(o for o in command["options"] if o["flag"] == "--guidance")
+    assert option["status"] == "conditional"
+
+
+@pytest.mark.fast
+def test_jsonable_preserves_mappings():
+    # A dict default must stay a JSON object, not become a Python repr string.
+    from pathlib import Path
+
+    assert capabilities._jsonable({"width": 1024, "p": Path("x")}) == {"width": 1024, "p": "x"}
+    assert capabilities._jsonable([Path("a"), 2]) == ["a", 2]
