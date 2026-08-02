@@ -8,8 +8,7 @@ from mflux.utils.exceptions import PromptFileReadError, StopImageGenerationExcep
 from mflux.utils.prompt_util import PromptUtil
 
 
-def main():
-    # 0. Parse command line arguments
+def build_parser() -> CommandLineParser:
     parser = CommandLineParser(description="Generate an image based on a prompt and a controlnet reference image.")  # fmt: off
     parser.add_general_arguments()
     parser.add_model_arguments(require_model_arg=True)
@@ -17,6 +16,11 @@ def main():
     parser.add_image_generator_arguments(supports_metadata_config=False)
     parser.add_controlnet_arguments(mode="canny")
     parser.add_output_arguments()
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
 
     # 0. Set default guidance value if not provided by user

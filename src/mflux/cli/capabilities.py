@@ -1,0 +1,194 @@
+"""mflux-capabilities: a machine-readable dump of what each CLI actually honours.
+
+Self-healing by construction, with no hand-maintained registry to rot:
+
+- Commands are discovered from the installed console scripts (importlib.metadata), so a
+  new CLI appears in the dump the moment it is wired into pyproject.
+- Accepted options, defaults, types and help come from each CLI's live ``build_parser()``,
+  so the dump can never list an option the parser no longer takes.
+- The honoured/ignored classification is read from the same module-level
+  ``IGNORED_OPTIONS`` / ``CONDITIONAL_OPTIONS`` constants the runtime warnings use, so the
+  dump and the warnings cannot disagree.
+- A CLI that has not adopted the ``build_parser()`` convention is still listed, marked
+  ``"coverage": "runtime-only"`` instead of being silently omitted.
+
+Everything an option record claims is either introspected live or declared in the one
+place the runtime also reads. Nothing here is transcribed by hand.
+"""
+
+import argparse
+import importlib
+import json
+import sys
+from importlib import metadata
+from typing import Any
+
+SCHEMA_VERSION = 1
+
+# Console-script prefixes that produce images and belong in the dump. Save/train/depth
+# tooling can join in a later schema revision.
+COMMAND_PREFIXES = ("mflux-generate",)
+
+
+def discover_commands() -> list[tuple[str, str]]:
+    """(command, module) pairs from the installed entry points, sorted by command."""
+    entry_points = metadata.entry_points()
+    scripts = entry_points.select(group="console_scripts")
+    found = []
+    for entry_point in scripts:
+        if entry_point.name.startswith(COMMAND_PREFIXES):
+            found.append((entry_point.name, entry_point.value.split(":")[0]))
+    return sorted(set(found))
+
+
+def _option_type_name(action: argparse.Action) -> str:
+    if isinstance(action, (argparse._StoreTrueAction, argparse._StoreFalseAction)):
+        return "bool"
+    if isinstance(action, argparse.BooleanOptionalAction):
+        return "bool"
+    if action.type is None:
+        return "str"
+    return getattr(action.type, "__name__", str(action.type))
+
+
+def _describe_option(action: argparse.Action, ignored: dict, conditional: dict) -> dict[str, Any]:
+    flag = max(action.option_strings, key=len)
+    record: dict[str, Any] = {
+        "flag": flag,
+        "type": _option_type_name(action),
+        "default": action.default if action.default is not argparse.SUPPRESS else None,
+        "status": "honored",
+    }
+    if action.option_strings and len(action.option_strings) > 1:
+        record["aliases"] = [o for o in action.option_strings if o != flag]
+    if action.choices is not None:
+        record["choices"] = sorted(str(c) for c in action.choices)
+    if action.required:
+        record["required"] = True
+    if action.nargs not in (None, 0):
+        record["nargs"] = str(action.nargs)
+    if action.help:
+        record["help"] = action.help
+    if flag in ignored:
+        record["status"] = "ignored"
+        record["reason"] = ignored[flag]
+    elif flag in conditional:
+        record["status"] = "conditional"
+        record["condition"] = conditional[flag]["condition"]
+        record["reason"] = conditional[flag]["reason"]
+    return record
+
+
+def _traits(parser, module) -> dict[str, Any]:
+    traits: dict[str, Any] = {
+        "lora": bool(getattr(parser, "supports_lora", False)),
+        "img2img": bool(getattr(parser, "supports_image_to_image", False)),
+        "controlnet": bool(getattr(parser, "supports_controlnet", False)),
+        "outpaint": bool(getattr(parser, "supports_image_outpaint", False)),
+        "metadata_config": bool(getattr(parser, "supports_metadata_config", False)),
+    }
+    default_model = parser.get_default("model")
+    if default_model:
+        traits["default_model"] = default_model
+        try:
+            from mflux.models.common.config.model_config import ModelConfig
+
+            traits["supports_guidance"] = bool(ModelConfig.from_name(default_model).supports_guidance)
+        except Exception:  # noqa: BLE001 -- a saved-path default model has no builtin config
+            pass
+    return traits
+
+
+def describe_command(command: str, module_path: str) -> dict[str, Any]:
+    entry: dict[str, Any] = {"command": command, "module": module_path}
+    try:
+        module = importlib.import_module(module_path)
+    except Exception as exc:  # noqa: BLE001 -- a broken import must not hide the rest of the dump
+        entry["coverage"] = "import-error"
+        entry["error"] = str(exc)
+        return entry
+
+    build_parser = getattr(module, "build_parser", None)
+    if build_parser is None:
+        # Listed rather than dropped: coverage gaps must be visible in the dump itself.
+        entry["coverage"] = "runtime-only"
+        return entry
+
+    parser = build_parser()
+    ignored = getattr(module, "IGNORED_OPTIONS", {})
+    conditional = getattr(module, "CONDITIONAL_OPTIONS", {})
+    entry["coverage"] = "full"
+    entry["description"] = parser.description
+    entry["options"] = [
+        _describe_option(action, ignored, conditional)
+        for action in parser._actions
+        if action.option_strings and "-h" not in action.option_strings
+    ]
+    entry["traits"] = _traits(parser, module)
+    return entry
+
+
+def build_capabilities() -> dict[str, Any]:
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "mflux_version": metadata.version("mflux-cv") if _dist_exists("mflux-cv") else metadata.version("mflux"),
+        "commands": [describe_command(command, module) for command, module in discover_commands()],
+    }
+
+
+def _dist_exists(name: str) -> bool:
+    try:
+        metadata.version(name)
+        return True
+    except metadata.PackageNotFoundError:
+        return False
+
+
+def _to_markdown(capabilities: dict[str, Any]) -> str:
+    lines = [f"# mflux capabilities (schema {capabilities['schema_version']}, mflux {capabilities['mflux_version']})", ""]
+    for cmd in capabilities["commands"]:
+        lines.append(f"## {cmd['command']}")
+        if cmd.get("coverage") != "full":
+            lines.append(f"_coverage: {cmd.get('coverage')}_")
+            lines.append("")
+            continue
+        lines.append("")
+        lines.append("| option | type | default | status | notes |")
+        lines.append("|---|---|---|---|---|")
+        for opt in cmd["options"]:
+            notes = opt.get("reason", "")
+            if opt["status"] == "conditional":
+                notes = f"honoured when {opt['condition']}. {opt.get('reason', '')}".strip()
+            default = "" if opt["default"] is None else repr(opt["default"])
+            lines.append(f"| `{opt['flag']}` | {opt['type']} | {default} | {opt['status']} | {notes} |")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Dump which options each mflux CLI actually honours.")
+    parser.add_argument("--command", type=str, default=None, help="Only dump this command (e.g. mflux-generate-z-image).")
+    parser.add_argument("--format", type=str, default="json", choices=["json", "yaml", "markdown"])
+    args = parser.parse_args()
+
+    capabilities = build_capabilities()
+    if args.command:
+        capabilities["commands"] = [c for c in capabilities["commands"] if c["command"] == args.command]
+        if not capabilities["commands"]:
+            parser.error(f"unknown command {args.command!r}; run without --command to list all")
+
+    if args.format == "json":
+        json.dump(capabilities, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    elif args.format == "yaml":
+        try:
+            import yaml
+        except ImportError:
+            parser.error("--format yaml needs PyYAML installed; JSON needs nothing.")
+        yaml.safe_dump(capabilities, sys.stdout, sort_keys=False)
+    else:
+        sys.stdout.write(_to_markdown(capabilities))
+
+
+if __name__ == "__main__":
+    main()

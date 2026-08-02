@@ -10,8 +10,7 @@ from mflux.utils.exceptions import PromptFileReadError, StopImageGenerationExcep
 from mflux.utils.prompt_util import PromptUtil
 
 
-def main():
-    # 0. Parse command line arguments
+def build_parser() -> CommandLineParser:
     parser = CommandLineParser(description="Generate an image using Flux2 Klein Edit with image conditioning.")
     parser.add_general_arguments()
     parser.add_model_arguments(require_model_arg=False)
@@ -21,6 +20,11 @@ def main():
     parser.add_argument("--image-paths", type=Path, nargs="+", required=True, help="Local paths to one or more init images. For single image editing, provide one path. For multiple image editing, provide multiple paths.")  # fmt: off
     parser.add_image_generator_arguments(supports_metadata_config=True, supports_dimension_scale_factor=True)
     parser.add_output_arguments()
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
 
     if getattr(args, "negative_prompt", ""):

@@ -11,8 +11,7 @@ from mflux.utils.exceptions import PromptFileReadError, StopImageGenerationExcep
 from mflux.utils.prompt_util import PromptUtil
 
 
-def main():
-    # 0. Parse command line arguments
+def build_parser() -> CommandLineParser:
     parser = CommandLineParser(description="Generate an image using in-context LoRA with a reference image.")
     parser.add_general_arguments()
     parser.add_model_arguments(require_model_arg=False)
@@ -21,6 +20,11 @@ def main():
     parser.add_in_context_dev_arguments()
     parser.add_in_context_arguments()
     parser.add_output_arguments()
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
 
     # 0. Set default guidance value if not provided by user

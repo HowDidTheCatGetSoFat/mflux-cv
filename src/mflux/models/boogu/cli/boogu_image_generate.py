@@ -6,9 +6,15 @@ from mflux.utils.exceptions import PromptFileReadError, StopImageGenerationExcep
 from mflux.utils.image_util import ImageUtil
 from mflux.utils.prompt_util import PromptUtil
 
+# Single source of truth for options this CLI accepts but cannot honour: the runtime
+# warning and the mflux-capabilities dump both read it.
+IGNORED_OPTIONS = {
+    "--guidance": "Boogu Image Turbo is guidance-distilled; CFG is disabled.",
+    "--negative-prompt": "CFG is disabled on Boogu Image Turbo, so the negative prompt is never encoded.",
+}
 
-def main():
-    # 0. Parse command line arguments
+
+def build_parser() -> CommandLineParser:
     parser = CommandLineParser(
         description="Generate an image using Boogu-Image-Turbo (4-step DMD). "
         "Tip: 4 steps is enough up to ~768px; use --steps 8 at 1024x1024, where 4 steps under-resolves detail."
@@ -18,13 +24,14 @@ def main():
     parser.add_lora_arguments()
     parser.add_image_generator_arguments(supports_metadata_config=True)
     parser.add_output_arguments()
+    return parser
+
+
+def main():
+    # 0. Parse command line arguments
+    parser = build_parser()
     args = parser.parse_args()
-    CommandLineParser.warn_ignored_options(
-        {
-            "--guidance": "Boogu Image Turbo is guidance-distilled; CFG is disabled.",
-            "--negative-prompt": "CFG is disabled on Boogu Image Turbo, so the negative prompt is never encoded.",
-        }
-    )
+    CommandLineParser.warn_ignored_options(IGNORED_OPTIONS)
 
     model_config = ModelConfig.from_name(model_name=args.model or "boogu-image-turbo")
 

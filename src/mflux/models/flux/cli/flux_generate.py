@@ -9,8 +9,14 @@ from mflux.utils.exceptions import PromptFileReadError, StopImageGenerationExcep
 from mflux.utils.prompt_util import PromptUtil
 
 
-def main():
-    # 0. Parse command line arguments
+# Single source of truth for options this CLI accepts but cannot honour: the runtime
+# warning and the mflux-capabilities dump both read it.
+IGNORED_OPTIONS = {
+    "--negative-prompt": "FLUX.1 uses distilled guidance and has no negative branch.",
+}
+
+
+def build_parser() -> CommandLineParser:
     parser = CommandLineParser(description="Generate an image based on a prompt.")
     parser.add_general_arguments()
     parser.add_model_arguments(require_model_arg=False)
@@ -19,10 +25,13 @@ def main():
     parser.add_image_to_image_arguments(required=False)
     parser.add_pid_decode_arguments()
     parser.add_output_arguments()
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
-    CommandLineParser.warn_ignored_options(
-        {"--negative-prompt": "FLUX.1 uses distilled guidance and has no negative branch."}
-    )
+    CommandLineParser.warn_ignored_options(IGNORED_OPTIONS)
 
     if (args.base_model and "klein" in args.base_model.lower()) or (args.model and "flux2-klein" in args.model.lower()):
         parser.error("FLUX.2 Klein is not supported by mflux-generate. Use mflux-generate-flux2 instead.")

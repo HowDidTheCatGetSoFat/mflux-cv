@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 
-def main():
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Decompose an image into RGBA layers using Qwen-Image-Layered.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -101,7 +101,11 @@ Examples:
         default=Path("."),
         help="Output directory (default: current directory)",
     )
+    return parser
 
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
 
     # Validate input

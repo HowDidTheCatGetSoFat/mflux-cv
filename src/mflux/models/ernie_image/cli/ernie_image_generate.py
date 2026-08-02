@@ -10,7 +10,7 @@ from mflux.utils.exceptions import PromptFileReadError, StopImageGenerationExcep
 from mflux.utils.prompt_util import PromptUtil
 
 
-def main():
+def build_parser() -> CommandLineParser:
     parser = CommandLineParser(description="Generate an image using ERNIE-Image (50 steps, CFG) based on a prompt.")
     parser.add_general_arguments()
     parser.add_model_arguments(require_model_arg=False)
@@ -20,6 +20,11 @@ def main():
     parser.add_pid_decode_arguments()
     parser.add_output_arguments()
     parser.set_defaults(model="ernie-image", guidance=4.0)
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
 
     if args.guidance is None:

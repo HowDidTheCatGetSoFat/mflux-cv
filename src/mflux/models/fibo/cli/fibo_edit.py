@@ -76,7 +76,7 @@ def _save_edit_result(
         image.save(path=out_path, export_json_metadata=args.metadata)
 
 
-def main():
+def build_parser() -> CommandLineParser:
     parser = CommandLineParser(description="Generate an edited image using Bria FIBO Edit.")
     parser.add_general_arguments()
     parser.add_model_arguments(require_model_arg=False)
@@ -91,6 +91,11 @@ def main():
     parser.add_argument("--mask-path", type=Path, default=None, help="Optional mask image path for localized edits.")
     parser.add_argument("--matte-output", type=str, default=None, help="fibo-edit-rmbg only: also save the raw grayscale matte. Supports {seed} like --output.")  # fmt: skip
     parser.add_output_arguments()
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
 
     if args.image_path is None:
