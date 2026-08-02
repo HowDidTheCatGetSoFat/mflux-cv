@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.34] - 2026-08-02
+
+### 🎨 New Features
+
+- **`mflux-capabilities`: a machine-readable contract of what each CLI actually honours** (from the [#357](https://github.com/filipstrand/mflux/issues/357) discussion, with the [#498](https://github.com/filipstrand/mflux/issues/498) evidence base). Downstream tools transcribe capability tables from `--help`, and `--help` overstates: some models read options and discard them. The dump is self-healing by construction, with no hand-maintained registry to rot: commands come from the installed console scripts, options and `parser_default`s from each CLI's live `build_parser()` (the idiom extracted across all 27 generate CLIs), and the honoured/ignored/conditional classification is the same constant the runtime warnings read, so dump and warnings cannot disagree. Output: JSON (default), YAML when PyYAML is present, and a markdown rendering for humans and llms.txt-style docs. Offered upstream as [#499](https://github.com/filipstrand/mflux/pull/499). (#41)
+
+### 🐛 Fixes
+
+- **Field-reported capability fixes**, from a downstream consumer who diffed the dump against their hand-maintained table (13 of 16 models agreed, and the dump caught a regression on their side): parser defaults now normalize to wire types at record-build time (a `Path` default truncated the streamed JSON mid-value) with the JSON serialized to a string before writing; and mapping defaults stay JSON objects rather than repr strings. (#43, #44)
+- **Eight flux-family commands now tell the truth about `--negative-prompt` and `--guidance`**: the controlnet, depth, fill, redux, kontext and the three in-context CLIs all accepted `--negative-prompt` and never read it while the dump reported it honoured, and the base and controlnet CLIs honour `--guidance` on dev but drop it on schnell (no guidance embedder is built). All declared, wired to runtime warnings keyed on the resolved model, and regression-pinned. (#43, #44)
+
+### 🏠 Project
+
+- **Synced with upstream**: the stepwise VAE-routing fix and its 104-line regression test file, by [@plz12345](https://github.com/plz12345) (upstream [#444](https://github.com/filipstrand/mflux/pull/444)); `cv/main..upstream/main` is empty again. The 0.18.28 defensive lora-paths read in the stepwise handler is now pinned by a test covering attribute-less models, the same fix offered upstream as [#500](https://github.com/filipstrand/mflux/pull/500) where the crash still reproduces. (#42, #45)
+
 ## [0.18.33] - 2026-08-01
 
 ### 🎨 New Features

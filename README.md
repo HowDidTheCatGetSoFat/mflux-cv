@@ -32,6 +32,28 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.34-CV
+
+- **`mflux-capabilities`: the CLI contract, machine-readable.** A versioned JSON dump of what each
+  command actually honours, because `--help` overstates: some models read options and discard them.
+  Self-healing by construction: commands come from the installed console scripts, options and
+  defaults from each CLI's live parser, and the honoured/ignored/conditional classification is the
+  same constant the runtime warnings read, so the dump and the warnings cannot disagree.
+  `--format markdown` for humans, `--format yaml` when PyYAML is present. Battle-tested by a
+  downstream consumer against their hand-maintained table (13 of 16 models agreed, and the dump
+  caught a regression on their side); their three findings and our review's three more are fixed
+  and regression-pinned. Offered upstream as
+  [#499](https://github.com/filipstrand/mflux/pull/499).
+- **Eight flux-family commands now tell the truth about `--negative-prompt` and `--guidance`**:
+  six CLIs beyond the base one accepted a negative prompt they never read, and dev honours
+  `--guidance` where schnell silently drops it. All declared and warned at runtime, keyed on the
+  resolved model.
+- **Synced with upstream** ([#444](https://github.com/filipstrand/mflux/pull/444) by
+  [@plz12345](https://github.com/plz12345)): the stepwise VAE-routing fix and its regression test
+  file; `cv/main..upstream/main` is empty again. The 0.18.28 stepwise lora-paths guard is now
+  test-pinned, and the fix is offered upstream as
+  [#500](https://github.com/filipstrand/mflux/pull/500), where the crash still reproduces.
+
 ### 0.18.33-CV
 
 - **NVIDIA PiD pixel-diffusion decoder** (upstream [#490](https://github.com/filipstrand/mflux/pull/490)
@@ -44,6 +66,9 @@ goes to their authors.
   invented detail. The 4x output re-draws rather than sharpens; portraits can over-texture. One
   deliberate divergence from the upstream branch: the sampler threads explicit RNG keys instead of
   reseeding the global stream, so multi-seed runs stay reproducible with and without `--pid-decode`.
+
+<details>
+<summary><b>Older releases (0.18.1 to 0.18.32)</b></summary>
 
 ### 0.18.32-CV
 
@@ -63,9 +88,6 @@ goes to their authors.
   Z-Image case where an omitted `--guidance` (default 0.0) disables CFG and drops the negative
   prompt. Options stay accepted so scripts keep working; the drop is just no longer silent.
   Abbreviated long options are now rejected parser-wide.
-
-<details>
-<summary><b>Older releases (0.18.1 to 0.18.31)</b></summary>
 
 ### 0.18.31-CV
 
