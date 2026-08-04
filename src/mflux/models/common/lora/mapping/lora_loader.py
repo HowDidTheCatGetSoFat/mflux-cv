@@ -105,7 +105,17 @@ class LoRALoader:
                 print(f"      ... and {len(unmatched_keys) - 5} more")
 
         if applied_count == 0:
-            raise ValueError(f"No LoRA layers were applied from {Path(lora_file).name}")
+            # The one case where the user has no idea what went wrong must not be the one
+            # case that says nothing: show how the file's keys end against what the
+            # mapping understands, so a naming-format mismatch reads as one.
+            seen_endings = sorted({".".join(k.split(".")[-2:]) for k in weights})[:8]
+            raise ValueError(
+                f"No LoRA layers were applied from {Path(lora_file).name}. "
+                f"Key endings seen in the file: {seen_endings}. This model's mapping expects "
+                f"endings like lora_A/lora_B, lora_up/lora_down or lora.up/lora.down (with or "
+                f"without a trailing .weight) under its module paths; anything else, e.g. full "
+                f"weight diffs (.diff), has no LoRA mechanism to land on."
+            )
 
     @staticmethod
     def _build_pattern_mappings(targets: list[LoRATarget]) -> list[PatternMatch]:
@@ -296,6 +306,19 @@ class LoRALoader:
 
     @staticmethod
     def _match_pattern(weight_key: str, pattern: str) -> int | None:
+        # ComfyUI-format adapters name the tensor itself "lora_B", not "lora_B.weight".
+        # Accept the bare spelling for every ".weight" pattern here, centrally, so no
+        # family mapping needs to spell both forms (only flux ever did, and only under
+        # its transformer. prefix; a field-patched krea2 was the report that surfaced
+        # the gap). Exact equality on the derived string cannot over-match: both
+        # spellings of a pattern name the same target module.
+        result = LoRALoader._match_pattern_exact(weight_key, pattern)
+        if result is None and pattern.endswith(".weight"):
+            result = LoRALoader._match_pattern_exact(weight_key, pattern[: -len(".weight")])
+        return result
+
+    @staticmethod
+    def _match_pattern_exact(weight_key: str, pattern: str) -> int | None:
         if "{block}" in pattern:
             # Find all numbers in the weight key
             numbers_in_key = re.findall(r"\d+", weight_key)
