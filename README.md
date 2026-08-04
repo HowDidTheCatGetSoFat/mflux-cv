@@ -32,6 +32,19 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.35-CV
+
+- **Fix: `--base-model <alias>` alone crashed blaming the vae.** `from_name` handed back
+  `model_name=None` through the `base_model` keyword; the alias now resolves to its own table entry,
+  both keywords yield the same config shape, and a missing weights location is reported once as the
+  whole-model condition it is. Field-reported; offered upstream as
+  [#501](https://github.com/filipstrand/mflux/pull/501).
+- **Fix: ComfyUI-format LoRAs (`lora_A`/`lora_B`, no trailing `.weight`) loaded nowhere but FLUX.1.**
+  The matcher now accepts the bare spelling for every `.weight` pattern in all seven families, and
+  the zero-match error shows the key endings it saw against what the mapping expects. Field-reported
+  with a working patch and a fixed-seed A/B; offered upstream as
+  [#505](https://github.com/filipstrand/mflux/pull/505).
+
 ### 0.18.34-CV
 
 - **`mflux-capabilities`: the CLI contract, machine-readable.** A versioned JSON dump of what each
@@ -54,6 +67,9 @@ goes to their authors.
   test-pinned, and the fix is offered upstream as
   [#500](https://github.com/filipstrand/mflux/pull/500), where the crash still reproduces.
 
+<details>
+<summary><b>Older releases (0.18.1 to 0.18.33)</b></summary>
+
 ### 0.18.33-CV
 
 - **NVIDIA PiD pixel-diffusion decoder** (upstream [#490](https://github.com/filipstrand/mflux/pull/490)
@@ -66,9 +82,6 @@ goes to their authors.
   invented detail. The 4x output re-draws rather than sharpens; portraits can over-texture. One
   deliberate divergence from the upstream branch: the sampler threads explicit RNG keys instead of
   reseeding the global stream, so multi-seed runs stay reproducible with and without `--pid-decode`.
-
-<details>
-<summary><b>Older releases (0.18.1 to 0.18.32)</b></summary>
 
 ### 0.18.32-CV
 

@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.35] - 2026-08-04
+
+### 🐛 Fixes
+
+- **`--base-model <alias>` with no `--model` crashed with an error blaming the vae**: `from_name` returned a differently shaped config depending on which keyword named the model, handing back `model_name=None` through the `base_model` keyword; every FLUX initializer read that None as the weights path and the failure surfaced as `No root_path and no download_url for component: vae` on a fully cached repository. The alias now resolves to its own table entry, so both keywords yield the same config shape, and the loader reports a missing root path once, up front, as the whole-model condition it is (components satisfied by direct download URLs or per-component path overrides are exempt). Field-reported with the full diagnosis; regression tests cover every base alias in `AVAILABLE_MODELS`. Offered upstream as [#501](https://github.com/filipstrand/mflux/pull/501). (#46)
+- **ComfyUI-format LoRAs (tensors named `lora_A`/`lora_B` with no trailing `.weight`) matched nothing in every family except FLUX.1**: matching is exact string equality and every suffix pattern outside flux ends in `.weight`, so a correct adapter died with "No LoRA layers were applied". The matcher now accepts the bare spelling for every `.weight` pattern centrally, closing the gap in flux2, qwen, z-image, ernie, ideogram4 and krea2 at once, and the zero-match error names the key endings it saw against what the mapping expects, so a naming-format mismatch (or a file of full-weight `.diff` deltas) reads as what it is. Field-reported with a working patch and a fixed-seed A/B; the fix lands one level below the patch. Offered upstream as [#505](https://github.com/filipstrand/mflux/pull/505). (#49)
+- **`mflux-capabilities` hardening from the late review round**: a mapping default whose keys collide when stringified now raises instead of publishing an incomplete record, and the conditional/mapping regression tests pin more of the contract. (#47)
+
 ## [0.18.34] - 2026-08-02
 
 ### 🎨 New Features
