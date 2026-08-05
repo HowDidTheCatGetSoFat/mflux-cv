@@ -15,7 +15,7 @@ pip install mflux-cv
 To track a specific tag instead, or to pick up work that has not been released yet:
 
 ```bash
-pip install git+https://github.com/HowDidTheCatGetSoFat/mflux-cv.git@v.0.18.25-CV
+pip install git+https://github.com/HowDidTheCatGetSoFat/mflux-cv.git@v.0.18.35-CV
 ```
 
 Wheels are also attached to every [Release](https://github.com/HowDidTheCatGetSoFat/mflux-cv/releases).
@@ -334,6 +334,15 @@ First release under the `mflux-CV` name. Same codebase as the prior `+fxd0h` bui
   the inverse permutation in SeedVR2's histogram matching with a scatter instead of a second sort. Verified
   before integrating: identical output including with repeated values, and 880 ms → 17.3 ms per channel at
   4M elements on an M5 Max.
+- **[filipstrand/mflux#492](https://github.com/filipstrand/mflux/pull/492) by plz12345** — the FLUX.2 CLIs
+  discarded all image metadata: `--metadata` wrote a sidecar containing literal `null`. Both CLIs now route
+  through the same save path as every other entry point. Cherry-picked with authorship preserved.
+- **[filipstrand/mflux#490](https://github.com/filipstrand/mflux/pull/490) by azrahello** — the NVIDIA PiD
+  pixel-diffusion decoder (`--pid-decode`): a 4x super-resolving re-render of the final latents, wired across
+  seven model families. Pulled at its post-review state, with the `--pid-degrade-sigma` piece co-authored by
+  plz12345; one deliberate divergence keeps multi-seed runs reproducible (explicit RNG keys in the sampler).
+- **[filipstrand/mflux#444](https://github.com/filipstrand/mflux/pull/444) by plz12345** — the stepwise
+  preview's VAE routing fix and its regression test file, synced so `cv/main..upstream/main` stays empty.
 
 ### Krea 2 depth ControlNet
 
@@ -396,8 +405,11 @@ MFLUX is a line-by-line MLX port of several state-of-the-art generative image mo
 If you haven't already, [install `uv`](https://github.com/astral-sh/uv?tab=readme-ov-file#installation), then run:
 
 ```sh
-uv tool install --upgrade mflux
+uv tool install --upgrade mflux-cv
 ```
+
+> For this community build the distribution is `mflux-cv` (the upstream original is `uv tool install mflux`;
+> install one or the other, never both — see the note at the top of this file).
 
 After installation, the following command shows all available MFLUX CLI commands: 
 
@@ -491,6 +503,7 @@ MFLUX supports the following model families. They have different strengths and w
 |[FLUX.2](src/mflux/models/flux2/README.md) | Jan 2026 | 4B & 9B | Distilled & Base | Yes | Fastest + smallest with very good qaility and edit capabilities. |
 |[Ideogram 4](src/mflux/models/ideogram4/README.md) | Jun 2026 | 9B | Base | No | JSON-caption-native, typography-focused text-to-image generation. |
 |[ERNIE-Image](src/mflux/models/ernie_image/README.md) | Apr 2026 | 8B | Distilled & Base | No | Single-stream DiT from Baidu. Vivid, high-contrast output. |
+|[Boogu](src/mflux/models/boogu) | Jun 2026 | 4B | Turbo (distilled) | No | 4-step DMD generation; fast drafts up to ~768px, use 8 steps at 1024. |
 |[FIBO](src/mflux/models/fibo/README.md) | Oct 2025+ | 8B | Distilled & Base | No | Very good JSON-based prompt understanding. Has edit capabilities. |
 |[SeedVR2](src/mflux/models/seedvr2/README.md) | Jun 2025 | 3B & 7B | — | No | Best upscaling model. |
 |[Qwen Image](src/mflux/models/qwen/README.md) | Aug 2025+ | 20B | Base | No | Large model (slower); strong prompt understanding and world knowledge. Has edit capabilities |
@@ -503,8 +516,10 @@ MFLUX supports the following model families. They have different strengths and w
 
 **General**
 - Quantization and local model loading
-- LoRA support (multi-LoRA, scales, library lookup), including LyCORIS LoKr on FLUX.1 and FLUX.2
+- LoRA support (multi-LoRA, scales, library lookup), including LyCORIS LoKr on FLUX.1, FLUX.2, Qwen, Ideogram 4 and Krea 2, and ComfyUI-format adapters (bare `lora_A`/`lora_B` tensor names) in every family
 - Metadata export + reuse, plus prompt file support
+- `mflux-capabilities`: a machine-readable JSON contract of what each CLI actually honours (honoured / ignored / conditional per option), self-healing from the installed entry points and live parsers; `--format markdown` for humans. CLIs also warn at runtime when an option they cannot honour is dropped
+- NVIDIA PiD pixel-diffusion decoding (`--pid-decode`): replace the VAE decode with a 4x super-resolving re-render on seven model families
 
 **Model-specific highlights**
 - Text-to-image and image-to-image generation.
@@ -528,6 +543,8 @@ See the [common README](src/mflux/models/common/README.md) for detailed usage an
 
 - [MindCraft Studio](https://themindstudio.cc/mindcraft#models) — macOS app built on mflux by [@shaoju](https://github.com/shaoju)
 - [mflux-paint](https://github.com/Amo643/mflux-paint) — native macOS inpaint/edit app (pywebview), 16 models across edit/inpaint/text-to-image, mask painting, multi-seed batch, by [@Amo643](https://github.com/Amo643)
+- [ComfyUI-mflux-AnyModel](https://github.com/fxd0h/ComfyUI-mflux-AnyModel) — run any mflux model in ComfyUI via MLX (live previews, LoRA, ControlNet stacking, PiD decode), built on this distro, by [@fxd0h](https://github.com/fxd0h)
+- [image-studio](https://github.com/MLXBits/image-studio) — native SwiftUI image studio for Apple Silicon running on mflux-cv, by [@plz12345](https://github.com/plz12345)
 - [Mflux-ComfyUI](https://github.com/raysers/Mflux-ComfyUI) by [@raysers](https://github.com/raysers)
 - [MFLUX-WEBUI](https://github.com/CharafChnioune/MFLUX-WEBUI) by [@CharafChnioune](https://github.com/CharafChnioune)
 - [mflux-fasthtml](https://github.com/anthonywu/mflux-fasthtml) by [@anthonywu](https://github.com/anthonywu)
