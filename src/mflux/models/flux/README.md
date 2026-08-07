@@ -68,14 +68,7 @@ Inpainting allows you to selectively regenerate specific parts of an image while
 
 ##### Creating Masks
 
-Before using the Fill tool, you need an image and a corresponding mask. You can create a mask using the included tool:
-
-```bash
-python tools/inpaint_mask_tool.py /path/to/your/image.jpg
-```
-
-This will open an interactive interface where you can paint over the areas you want to regenerate.
-Pressing the `s` key will save the mask at the same location as the image.
+Before using the Fill tool, you need an image and a corresponding mask: a black-and-white image of the same size as the input, where white marks the areas to regenerate and black marks the areas to preserve. Any image editor can produce one (for example Preview's markup, GIMP, Photoshop, or Krita): paint the regions you want replaced in pure white on a pure black background and save it as a PNG next to your image.
 
 ##### Example
 
@@ -101,25 +94,21 @@ mflux-generate-fill \
 
 Outpainting extends your image beyond its original boundaries, allowing you to expand the canvas in any direction while maintaining visual consistency with the original content. This is useful for creating wider landscapes, revealing more of a scene, or transforming a portrait into a full-body image. The Fill tool intelligently generates new content that seamlessly connects with the existing image.
 
-You can expand the canvas of your image using the provided tool:
+To outpaint you need two files: an expanded canvas containing your original image, and a mask that is white over the newly added border and black over the original content. You can create both in any image editor by enlarging the canvas and painting the mask by hand, or with a few lines of Python using the helpers that ship with mflux (`ImageUtil.expand_image` and `ImageUtil.create_outpaint_mask_image`):
 
-```bash
-python tools/create_outpaint_image_canvas_and_mask.py \
-  /path/to/your/image.jpg \
-  --image-outpaint-padding "0,30%,20%,0"
+```python
+from mflux.utils.image_util import ImageUtil
+
+image = ImageUtil.load_image("room.png")
+
+# Padding is top, right, bottom, left; values can be pixels or percentages.
+padding = dict(top=0, right="25%", bottom=0, left="25%")
+
+ImageUtil.expand_image(image, **padding).save("room_canvas.png")
+ImageUtil.create_outpaint_mask_image(image.width, image.height, **padding).save("room_mask.png")
 ```
 
-As an example, here's how to add 25% padding to both the left and right sides of an image:
-
-```bash
-python tools/create_outpaint_image_canvas_and_mask.py \
-  room.png \
-  --image-outpaint-padding "0,25%,0,25%"
-```
-
-The padding format is "top,right,bottom,left" where each value can be in pixels or as a percentage. For example, "0,30%,20%,0" expands the canvas by 30% to the right and 20% to the bottom.
-
-After running this command, you'll get two files: an expanded canvas with your original image and a corresponding mask. You can then run the `mflux-generate-fill` command similar to the inpainting example, using these files as input.
+The example above adds 25% padding to both the left and right sides of the image. You can then run the `mflux-generate-fill` command similar to the inpainting example, using these two files as input.
 
 ##### Example
 
@@ -132,7 +121,7 @@ mflux-generate-fill \
   --seed 43 \
   --guidance 30 \
   -q 8 \
-  --image-path "room.png" \
+  --image-path "room_canvas.png" \
   --masked-image-path "room_mask.png" \
 ```
 
