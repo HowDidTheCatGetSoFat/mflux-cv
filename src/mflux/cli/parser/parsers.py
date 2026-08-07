@@ -273,6 +273,7 @@ class CommandLineParser(argparse.ArgumentParser):
 
     def add_output_arguments(self) -> None:
         self.add_argument("--metadata", action="store_true", help="Export image metadata as a JSON file.")
+        self.add_argument("--no-metadata", action="store_true", help="Do not embed generation metadata (EXIF UserComment and friends) in the output image. Independent of --metadata, which additionally writes a JSON sidecar.")
         self.add_argument("--saveinfo", action="store_true", help="Save with descriptive filename: Timestamp_Seed_S{Steps}_{LoRA}_{Scheduler}_{SigmaArgs}.png")
         self.add_argument("--output", type=str, default="image.png", help="The filename for the output image. Default is \"image.png\".")
         self.add_argument('--stepwise-image-output-dir', type=str, default=None, help='[EXPERIMENTAL] Output dir to write step-wise images and their final composite image to. This feature may change in future versions.')
@@ -468,6 +469,11 @@ class CommandLineParser(argparse.ArgumentParser):
 
     def parse_args(self) -> argparse.Namespace:  # type: ignore
         namespace = super().parse_args()
+
+        if getattr(namespace, "no_metadata", False):
+            from mflux.utils.image_util import ImageUtil
+
+            ImageUtil.embed_metadata_enabled = False
 
         # Fold the atomic --lora / --image flags into the legacy lora_paths/lora_scales
         # and image_path/image_strength fields so all downstream logic (metadata merge,
