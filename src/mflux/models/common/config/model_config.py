@@ -154,6 +154,11 @@ class ModelConfig:
 
     @staticmethod
     @lru_cache
+    def qwen_image_flash() -> "ModelConfig":
+        return AVAILABLE_MODELS["qwen-image-flash"]
+
+    @staticmethod
+    @lru_cache
     def boogu_image_turbo() -> "ModelConfig":
         return AVAILABLE_MODELS["boogu-image-turbo"]
 
@@ -614,6 +619,29 @@ AVAILABLE_MODELS = {
         sigma_max_shift=0.9,
         sigma_max_seq_len=8192,
         sigma_shift_terminal=0.02,
+    ),
+    "qwen-image-flash": ModelConfig(
+        # NVIDIA's DMD2 4-step distillation of Qwen-Image-2512 (byte-identical transformer
+        # config). CFG is internalized in the weights: the model card calls for
+        # true_cfg_scale 1.0, and applying guidance again degrades output, so
+        # supports_guidance=False makes the txt2img variant run the conditional pass only.
+        # Its scheduler_config uses a STATIC shift of 3.0 (use_dynamic_shifting false,
+        # shift_terminal null). MFLUX stores the exponential time-shift parameter mu, so a
+        # static shift S is expressed as sigma_base_shift == sigma_max_shift == ln(S):
+        # the dynamic-mu line in LinearScheduler collapses to a resolution-independent
+        # mu = ln(3), the same convention Mage Flow (ln 6) and ERNIE (ln 4) use.
+        priority=15,
+        aliases=["qwen-image-flash", "qwen-flash"],
+        model_name="nvidia/Qwen-Image-Flash",
+        base_model=None,
+        controlnet_model=None,
+        custom_transformer_model=None,
+        num_train_steps=None,
+        max_sequence_length=None,
+        supports_guidance=False,
+        requires_sigma_shift=True,
+        sigma_base_shift=1.0986122886681098,  # ln(3.0)
+        sigma_max_shift=1.0986122886681098,  # ln(3.0)
     ),
     "fibo": ModelConfig(
         priority=17,
