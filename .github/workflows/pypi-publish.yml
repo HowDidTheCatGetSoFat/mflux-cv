@@ -1,0 +1,34 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    # Gated until the trusted publisher is configured on the PyPI project.
+    # Enable with: gh variable set PYPI_TRUSTED_PUBLISHING --body true
+    if: vars.PYPI_TRUSTED_PUBLISHING == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - name: Publish to PyPI via trusted publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # No-op instead of failing when the version was already uploaded
+          # manually, so both publishing paths can coexist.
+          skip-existing: true
