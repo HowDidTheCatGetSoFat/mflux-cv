@@ -5,9 +5,20 @@ from PIL import Image
 from mflux.utils.image_compare import ImageCompare
 
 
-def _save(path, array):
+from pathlib import Path
+
+
+def _save(path: Path, array: np.ndarray) -> Path:
     Image.fromarray(array.astype(np.uint8)).save(path)
     return path
+
+
+@pytest.fixture(autouse=True)
+def _clean_tolerance_env(monkeypatch):
+    # The comparator reads these at call time; an external value would change what
+    # "default" means in the assertions below.
+    monkeypatch.delenv("MFLUX_IMAGE_ALLCLOSE_ATOL", raising=False)
+    monkeypatch.delenv("MFLUX_IMAGE_ALLCLOSE_RTOL", raising=False)
 
 
 @pytest.fixture
@@ -67,8 +78,14 @@ def test_genuinely_different_pair_still_fails_at_default_atol(different_pair):
 
 
 @pytest.mark.fast
-def test_atol_env_var_overrides_default(near_black_pair, monkeypatch):
+def test_atol_env_var_overrides_default(tmp_path, monkeypatch):
+    # A pair differing by exactly 3 counts: fails at the default atol=2 and passes at
+    # atol=3, so the configured value is distinguishable from the default.
+    base = np.full((16, 16, 3), 4, dtype=np.uint8)
+    path1 = _save(tmp_path / "a.png", base)
+    path2 = _save(tmp_path / "b.png", base + 3)
+    with pytest.raises(AssertionError):
+        ImageCompare.check_images_close_enough(path1, path2, "Diff-of-3 at the default atol.")
     monkeypatch.setenv("MFLUX_IMAGE_ALLCLOSE_ATOL", "3")
-    path1, path2 = near_black_pair
-    mismatch_ratio = ImageCompare.check_images_close_enough(path1, path2, "Near-black pair with atol=3.")
+    mismatch_ratio = ImageCompare.check_images_close_enough(path1, path2, "Diff-of-3 at atol=3.")
     assert mismatch_ratio == 0.0
