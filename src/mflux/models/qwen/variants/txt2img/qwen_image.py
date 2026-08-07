@@ -61,6 +61,13 @@ class QwenImage(nn.Module):
         pid_decode: bool = False,
         pid_degrade_sigma: float = 0.0,
     ) -> GeneratedImage:
+        # Guidance-distilled checkpoints (Qwen-Image-Flash) internalize CFG: the model
+        # card calls for true_cfg 1.0 and applying guidance a second time degrades the
+        # output, so force guidance to 1.0 and skip the negative pass in the loop below.
+        uses_cfg = self.model_config.supports_guidance is not False
+        if not uses_cfg:
+            guidance = 1.0
+
         # 0. Create a new config based on the model type and input parameters
         config = Config(
             width=width,
@@ -114,17 +121,18 @@ class QwenImage(nn.Module):
                     encoder_hidden_states=prompt_embeds,
                     encoder_hidden_states_mask=prompt_mask,
                 )
-                noise_negative = self.transformer(
-                    t=t,
-                    config=config,
-                    hidden_states=latents,
-                    encoder_hidden_states=negative_prompt_embeds,
-                    encoder_hidden_states_mask=negative_prompt_mask,
-                )
-                guided_noise = QwenImage.compute_guided_noise(noise, noise_negative, config.guidance)
+                if uses_cfg:
+                    noise_negative = self.transformer(
+                        t=t,
+                        config=config,
+                        hidden_states=latents,
+                        encoder_hidden_states=negative_prompt_embeds,
+                        encoder_hidden_states_mask=negative_prompt_mask,
+                    )
+                    noise = QwenImage.compute_guided_noise(noise, noise_negative, config.guidance)
 
                 # 5.t Take one denoise step
-                latents = config.scheduler.step(noise=guided_noise, timestep=t, latents=latents)
+                latents = config.scheduler.step(noise=noise, timestep=t, latents=latents)
 
                 # 6.t Call subscribers in-loop
                 ctx.in_loop(t, latents)
