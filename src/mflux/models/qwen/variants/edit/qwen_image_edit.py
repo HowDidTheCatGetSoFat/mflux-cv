@@ -68,6 +68,13 @@ class QwenImageEdit(nn.Module):
         scheduler: str = "linear",
         negative_prompt: str | None = None,
     ) -> GeneratedImage:
+        # Guidance-distilled checkpoints (Qwen-Image-Flash through the edit path)
+        # internalize CFG: force guidance to 1.0 so the per-step negative pass below
+        # is skipped and guidance is never applied a second time. The identity check
+        # keeps base qwen-edit (supports_guidance=None) on true CFG.
+        if self.model_config.supports_guidance is False:
+            guidance = 1.0
+
         config, vl_width, vl_height, vae_width, vae_height = self._compute_dimensions(
             width=width,
             height=height,

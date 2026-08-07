@@ -56,7 +56,7 @@ def main():
     model_config = ModelConfig.qwen_image()
     if args.model is not None:
         try:
-            model_config = ModelConfig.from_name(args.model)
+            model_config = ModelConfig.from_name(args.model, base_model=args.base_model)
         except ModelConfigError:
             if args.model_path is None:
                 raise

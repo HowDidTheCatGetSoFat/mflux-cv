@@ -22,23 +22,47 @@ def build_parser() -> CommandLineParser:
     return parser
 
 
+# Single source of truth for options a guidance-distilled model cannot honour here:
+# the runtime warning and the mflux-capabilities dump both read it.
+CONDITIONAL_OPTIONS = {
+    "--guidance": {
+        "condition": "the resolved model supports guidance (distilled checkpoints internalize CFG)",
+        "reason": "guidance-distilled checkpoints internalize CFG; applying guidance again degrades the output.",
+    },
+    "--negative-prompt": {
+        "condition": "the resolved model supports guidance",
+        "reason": "CFG is disabled on guidance-distilled checkpoints, so the negative prompt is never applied.",
+    },
+}
+
+
 def main():
     # 0. Parse command line arguments
     parser = build_parser()
     args = parser.parse_args()
 
-    # 0. Set default guidance value if not provided by user
-    if args.guidance is None:
-        args.guidance = ui_defaults.GUIDANCE_SCALE_KONTEXT
-
     # 1. Load the model
     model_config = ModelConfig.qwen_image_edit()
     if args.model is not None:
         try:
-            model_config = ModelConfig.from_name(args.model)
+            model_config = ModelConfig.from_name(args.model, base_model=args.base_model)
         except ModelConfigError:
             if args.model_path is None:
                 raise
+
+    # Warn on the EFFECTIVE behavior and set the guidance: a model that resolved to a
+    # guidance-distilled config (Qwen-Image-Flash through this CLI) must run at 1.0,
+    # which also skips the per-step negative pass in the variant.
+    if model_config.supports_guidance is False:
+        CommandLineParser.warn_ignored_options(
+            {
+                "--guidance": CONDITIONAL_OPTIONS["--guidance"]["reason"],
+                "--negative-prompt": CONDITIONAL_OPTIONS["--negative-prompt"]["reason"],
+            }
+        )
+        args.guidance = 1.0
+    elif args.guidance is None:
+        args.guidance = ui_defaults.GUIDANCE_SCALE_KONTEXT
 
     qwen = QwenImageEdit(
         quantize=args.quantize,
