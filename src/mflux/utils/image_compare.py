@@ -27,7 +27,7 @@ class ImageCompare:
             image1_data,
             image2_data,
             rtol=float(os.environ.get("MFLUX_IMAGE_ALLCLOSE_RTOL", 0.1)),
-            atol=0,  # ignore absolute tolerance
+            atol=float(os.environ.get("MFLUX_IMAGE_ALLCLOSE_ATOL", 2)),  # rtol alone collapses to exact-match near black
         )
         num_mismatched = np.count_nonzero(~closeness_array)
         total_elements = image1_data.size
@@ -50,11 +50,12 @@ class ImageCompare:
         image2_data = np.array(Image.open(image2_path))
 
         rtol = float(os.environ.get("MFLUX_IMAGE_ALLCLOSE_RTOL", 0.1))
+        atol = float(os.environ.get("MFLUX_IMAGE_ALLCLOSE_ATOL", 2))
         closeness_array = np.isclose(
             image1_data,
             image2_data,
             rtol=rtol,
-            atol=0,
+            atol=atol,
         )
 
         num_mismatched = np.count_nonzero(~closeness_array)
