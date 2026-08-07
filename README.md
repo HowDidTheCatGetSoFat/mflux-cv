@@ -32,6 +32,21 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.37-CV
+
+- **Fix: Klein edit stretched reference images whenever aspects differed** (upstream
+  [#385](https://github.com/filipstrand/mflux/issues/385)): each reference is now encoded at its own
+  aspect-preserved size (capped near 1MP and snapped to multiples of 16 by center-crop), matching
+  diffusers. It bit hardest on multi-image edits and explicit `--width`/`--height`. All three Klein
+  edit goldens validated, including 9b-kv.
+- **Fix: Flash follow-ups**: `--base-model` survives qwen CLI resolution, and Flash through the edit
+  CLI no longer double-applies CFG.
+- **mlx floor raised to 0.32.0 on macOS** (upstream
+  [#489](https://github.com/filipstrand/mflux/pull/489)): older mlx silently corrupts
+  `quantized_matmul` past 32768 rows; reproduced here, the whole result garbage at 40000 rows.
+- **Releases can publish to PyPI via trusted publishing (OIDC)**, gated by a repository variable
+  until the PyPI side is configured; the manual path keeps working.
+
 ### 0.18.36-CV
 
 - **New model: nvidia/Qwen-Image-Flash** (`--model qwen-image-flash`): the DMD2 4-step distillation
@@ -42,6 +57,9 @@ goes to their authors.
   near-black references no longer fail on 1-2 count noise; `MFLUX_IMAGE_ALLCLOSE_ATOL` overrides.
 - **`--no-metadata`** (upstream [#437](https://github.com/filipstrand/mflux/issues/437)): opt out of
   embedding generation parameters in the output image.
+
+<details>
+<summary><b>Older releases (0.18.1 to 0.18.35)</b></summary>
 
 ### 0.18.35-CV
 
@@ -55,9 +73,6 @@ goes to their authors.
   the zero-match error shows the key endings it saw against what the mapping expects. Field-reported
   with a working patch and a fixed-seed A/B; offered upstream as
   [#505](https://github.com/filipstrand/mflux/pull/505).
-
-<details>
-<summary><b>Older releases (0.18.1 to 0.18.34)</b></summary>
 
 ### 0.18.34-CV
 

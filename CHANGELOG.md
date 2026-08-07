@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.37] - 2026-08-07
+
+### 🐛 Fixes
+
+- **Klein edit references are encoded at their own aspect-preserved size** (upstream [#385](https://github.com/filipstrand/mflux/issues/385)): reference images were resized to the output dimensions, stretching them whenever the aspects differed. The CLI masked it by defaulting dimensions to the reference; it always bit on secondary references in multi-image edits and with explicit `--width`/`--height`. Now diffusers parity, scoped to the Klein helper: each reference keeps its own size, capped near 1MP preserving aspect and snapped down to multiples of 16 by center-crop, so nothing gets squashed. Packing and position ids derive from the encoded shape and needed no changes. The two wide-reference goldens moved exactly as the investigation predicted (6.7% and 9.4%, visually reviewed) and both dalmatian goldens, predicted stable, passed against their previous references, including the 9b-kv variant validated after its 41GB download. (#57)
+- **Flash follow-ups from the adversarial review round**: `--base-model` was dropped when the qwen CLI resolved the model name, and running Flash through the edit CLI double-applied CFG. The edit CLI now warns and forces guidance 1.0 for distilled configs, and the variant defends itself with an identity gate that leaves base qwen's true CFG intact. (#56)
+- **mlx floor raised to 0.32.0 on macOS** (upstream [#489](https://github.com/filipstrand/mflux/pull/489)): mlx below 0.32.0 silently corrupts `quantized_matmul` once the input matrix passes 32768 rows. Reproduced here before porting: at 40000 rows the whole result is garbage on 0.31.0 and exact on 0.32.0. Quantized SeedVR2 at large output sizes runs straight into that path. The lockfile was also refreshed to match the current pyproject. (#58)
+
+### 🏠 Project
+
+- **Releases can publish to PyPI through trusted publishing (OIDC)**: a workflow triggered by release publication builds with uv and uploads without any long-lived token. Gated behind the `PYPI_TRUSTED_PUBLISHING` repository variable until the PyPI side is configured; the manual publish path keeps working unchanged. (#59)
+
 ## [0.18.36] - 2026-08-06
 
 ### 🎨 New Features
