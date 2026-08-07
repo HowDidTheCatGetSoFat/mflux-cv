@@ -20,6 +20,10 @@ log = logging.getLogger(__name__)
 
 
 class ImageUtil:
+    # Default on: generation metadata is embedded as EXIF UserComment (plus the
+    # MetadataBuilder formats). --no-metadata sets this to False for the process.
+    embed_metadata_enabled: bool = True
+
     @staticmethod
     def resolve_output_path(path: str | Path, overwrite: bool = False) -> Path:
         file_path = Path(path)
@@ -261,8 +265,11 @@ class ImageUtil:
                 with open(metadata_path, "w") as json_file:
                     json.dump(metadata, json_file, indent=4)
 
-            # Embed metadata in multiple formats for maximum compatibility
-            if metadata is not None:
+            # Embed metadata in multiple formats for maximum compatibility.
+            # embed_metadata_enabled is the --no-metadata opt-out: the parser flips it
+            # once at parse time, so every save site honours the flag without each of
+            # the ~25 CLIs having to thread a kwarg through (upstream issue #437).
+            if metadata is not None and ImageUtil.embed_metadata_enabled:
                 ImageUtil._embed_metadata(metadata, file_path)
                 MetadataBuilder.embed_metadata(metadata, file_path)
                 log.info(f"Metadata embedded successfully at: {file_path}")
