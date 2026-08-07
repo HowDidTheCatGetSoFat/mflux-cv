@@ -135,3 +135,44 @@ def test_qwen_cli_default_model_stays_silent_and_resolves_2512(monkeypatch):
     )
     assert messages == []
     assert captured["model_config"].model_name == "Qwen/Qwen-Image-2512"
+
+
+@pytest.mark.fast
+def test_base_model_keyword_resolves_flash_for_custom_checkpoints():
+    # A custom flash-derivative repo with --base-model qwen-flash must inherit the
+    # distilled contract (no CFG, static ln-3 shift), not the 2512 one. The generate
+    # CLI used to drop base_model on the floor here.
+    resolved = ModelConfig.from_name("someorg/custom-flash-distill", base_model="qwen-flash")
+    assert resolved.model_name == "someorg/custom-flash-distill"
+    assert resolved.supports_guidance is False
+    assert resolved.sigma_base_shift == resolved.sigma_max_shift
+
+
+@pytest.mark.fast
+def test_edit_cli_warns_and_forces_guidance_for_flash(monkeypatch):
+    # mflux-generate-qwen-edit --model qwen-flash must not double-apply CFG: the CLI
+    # warns and forces guidance 1.0, so the variant's negative pass is skipped.
+    import sys as _sys
+    import warnings as _warnings
+
+    from mflux.models.qwen.cli import qwen_image_edit_generate as edit_cli
+
+    captured = {}
+
+    def boom(**kwargs):
+        raise _ModelStubbed
+
+    class _ModelStubbed(Exception):
+        pass
+
+    monkeypatch.setattr(edit_cli, "QwenImageEdit", boom)
+    monkeypatch.setattr(
+        _sys, "argv",
+        ["prog", "--model", "qwen-flash", "--prompt", "x", "--image-paths", "/tmp/a.png", "--guidance", "2.5"],
+    )
+    with _warnings.catch_warnings(record=True) as caught:
+        _warnings.simplefilter("always")
+        with pytest.raises(_ModelStubbed):
+            edit_cli.main()
+    messages = [str(w.message) for w in caught]
+    assert any("--guidance is ignored" in m for m in messages)
