@@ -32,6 +32,17 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.36-CV
+
+- **New model: nvidia/Qwen-Image-Flash** (`--model qwen-image-flash`): the DMD2 4-step distillation
+  of Qwen-Image, transformer byte-identical to 2512, so the 20B Qwen drops from minutes to ~24s of
+  denoising. CFG is internalized: guidance forced to 1.0, the per-step negative pass skipped, and
+  both flags reported honestly by the warnings and `mflux-capabilities`.
+- **Fix: golden-image comparator atol** (upstream [#467](https://github.com/filipstrand/mflux/issues/467)/[#491](https://github.com/filipstrand/mflux/issues/491)):
+  near-black references no longer fail on 1-2 count noise; `MFLUX_IMAGE_ALLCLOSE_ATOL` overrides.
+- **`--no-metadata`** (upstream [#437](https://github.com/filipstrand/mflux/issues/437)): opt out of
+  embedding generation parameters in the output image.
+
 ### 0.18.35-CV
 
 - **Fix: `--base-model <alias>` alone crashed blaming the vae.** `from_name` handed back
@@ -44,6 +55,9 @@ goes to their authors.
   the zero-match error shows the key endings it saw against what the mapping expects. Field-reported
   with a working patch and a fixed-seed A/B; offered upstream as
   [#505](https://github.com/filipstrand/mflux/pull/505).
+
+<details>
+<summary><b>Older releases (0.18.1 to 0.18.34)</b></summary>
 
 ### 0.18.34-CV
 
@@ -66,9 +80,6 @@ goes to their authors.
   file; `cv/main..upstream/main` is empty again. The 0.18.28 stepwise lora-paths guard is now
   test-pinned, and the fix is offered upstream as
   [#500](https://github.com/filipstrand/mflux/pull/500), where the crash still reproduces.
-
-<details>
-<summary><b>Older releases (0.18.1 to 0.18.33)</b></summary>
 
 ### 0.18.33-CV
 

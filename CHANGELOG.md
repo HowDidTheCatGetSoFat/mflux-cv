@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.36] - 2026-08-06
+
+### 🎨 New Features
+
+- **nvidia/Qwen-Image-Flash** (`--model qwen-image-flash` / `qwen-flash`): NVIDIA's DMD2 4-step distillation of Qwen-Image, with a transformer byte-identical to Qwen-Image-2512, so the 20B Qwen goes from minutes to about 24 seconds of denoising (768x768, q8, M5 Max; peak 40.78 GB). CFG is internalized per the model card: guidance is forced to 1.0, the per-step negative transformer pass is skipped entirely (halving per-step cost), and `--guidance`/`--negative-prompt` are declared conditional so the runtime warnings and `mflux-capabilities` report them correctly. The static shift-3 schedule is expressed through the existing sigma schema (base shift == max shift == ln 3), producing exactly `[1.0, 0.9, 0.75, 0.5, 0.0]` at any resolution. The qwen CLI also now resolves `--model` (it previously ignored it). (#55)
+
+### 🐛 Fixes
+
+- **Golden-image comparator: `atol` defaults to 2** (upstream #467/#491): the hardcoded `atol=0` collapsed tolerance to exact-match on near-black pixels, flagging visually identical dark references. Overridable via `MFLUX_IMAGE_ALLCLOSE_ATOL`, mirroring the rtol knob. (#52)
+- **`--no-metadata`** (upstream #437): opt out of embedding generation parameters (EXIF UserComment and friends) in the output image. Default unchanged; independent of `--metadata`, which additionally writes the JSON sidecar. (#53)
+- **flux README no longer references nonexistent `tools/` scripts** (upstream #411): the inpaint section gives real mask guidance and the outpaint section uses the shipped `ImageUtil` helpers, snippet executed and verified. (#54)
+
 ## [0.18.35] - 2026-08-04
 
 ### 🐛 Fixes
