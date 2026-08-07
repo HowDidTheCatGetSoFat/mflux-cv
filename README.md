@@ -15,7 +15,7 @@ pip install mflux-cv
 To track a specific tag instead, or to pick up work that has not been released yet:
 
 ```bash
-pip install git+https://github.com/HowDidTheCatGetSoFat/mflux-cv.git@v.0.18.35-CV
+pip install git+https://github.com/HowDidTheCatGetSoFat/mflux-cv.git@v.0.18.37-CV
 ```
 
 Wheels are also attached to every [Release](https://github.com/HowDidTheCatGetSoFat/mflux-cv/releases).
@@ -369,6 +369,10 @@ First release under the `mflux-CV` name. Same codebase as the prior `+fxd0h` bui
   plz12345; one deliberate divergence keeps multi-seed runs reproducible (explicit RNG keys in the sampler).
 - **[filipstrand/mflux#444](https://github.com/filipstrand/mflux/pull/444) by plz12345** — the stepwise
   preview's VAE routing fix and its regression test file, synced so `cv/main..upstream/main` stays empty.
+- **[filipstrand/mflux#489](https://github.com/filipstrand/mflux/pull/489) by plz12345** — require mlx
+  0.32.0 or newer on macOS: below that, `quantized_matmul` silently corrupts its output once the input
+  passes 32768 rows, and quantized SeedVR2 at large output sizes runs into it. Reproduced independently
+  before porting the floor bump.
 
 ### Krea 2 depth ControlNet
 
@@ -532,7 +536,7 @@ MFLUX supports the following model families. They have different strengths and w
 |[Boogu](src/mflux/models/boogu) | Jun 2026 | 4B | Turbo (distilled) | No | 4-step DMD generation; fast drafts up to ~768px, use 8 steps at 1024. |
 |[FIBO](src/mflux/models/fibo/README.md) | Oct 2025+ | 8B | Distilled & Base | No | Very good JSON-based prompt understanding. Has edit capabilities. |
 |[SeedVR2](src/mflux/models/seedvr2/README.md) | Jun 2025 | 3B & 7B | — | No | Best upscaling model. |
-|[Qwen Image](src/mflux/models/qwen/README.md) | Aug 2025+ | 20B | Base | No | Large model (slower); strong prompt understanding and world knowledge. Has edit capabilities |
+|[Qwen Image](src/mflux/models/qwen/README.md) | Aug 2025+ | 20B | Base & Flash (distilled) | No | Strong prompt understanding and world knowledge; the Flash variant (`--model qwen-image-flash`) cuts denoising to 4 steps. Has edit capabilities |
 |[Depth Pro](src/mflux/models/depth_pro/README.md) | Oct 2024 | — | — | No | Very fast and accurate depth estimation model from Apple. |
 |[FLUX.1](src/mflux/models/flux/README.md) | Aug 2024 | 12B | Distilled & Base | No (legacy) | Legacy option with decent quality. Has edit capabilities with 'Kontext' model and upscaling support via ControlNet |
 
@@ -698,6 +702,9 @@ Still open upstream, running here because this build pulled them in. Each is des
 | Qwen | model version defaults | [@imbible](https://github.com/imbible) | [#474](https://github.com/filipstrand/mflux/pull/474) |
 | | configurable VAE decode tiling | [@azrahello](https://github.com/azrahello) | [#475](https://github.com/filipstrand/mflux/pull/475) |
 | SeedVR2 | linear-time histogram matching | [@Missing-Identity](https://github.com/Missing-Identity) | [#488](https://github.com/filipstrand/mflux/pull/488) |
+| | mlx 0.32.0 floor (quantized_matmul corruption) | [@plz12345](https://github.com/plz12345) | [#489](https://github.com/filipstrand/mflux/pull/489) |
+| | NVIDIA PiD pixel-diffusion decoder (`--pid-decode`) | [@azrahello](https://github.com/azrahello) | [#490](https://github.com/filipstrand/mflux/pull/490) |
+| FLUX.2 | CLI metadata embedding fix | [@plz12345](https://github.com/plz12345) | [#492](https://github.com/filipstrand/mflux/pull/492) |
 | Mage Flow | | [@ivanfioravanti](https://github.com/ivanfioravanti) | [#483](https://github.com/filipstrand/mflux/pull/483) |
 
 Written in this build:
