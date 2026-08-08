@@ -15,7 +15,7 @@ pip install mflux-cv
 To track a specific tag instead, or to pick up work that has not been released yet:
 
 ```bash
-pip install git+https://github.com/HowDidTheCatGetSoFat/mflux-cv.git@v.0.18.37-CV
+pip install git+https://github.com/HowDidTheCatGetSoFat/mflux-cv.git@v.0.18.38-CV
 ```
 
 Wheels are also attached to every [Release](https://github.com/HowDidTheCatGetSoFat/mflux-cv/releases).
@@ -32,6 +32,15 @@ goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
 
+### 0.18.38-CV
+
+- **Fix: Qwen-Image 4-bit accumulated quantization noise across steps** (upstream
+  [#484](https://github.com/filipstrand/mflux/issues/484)): more steps made 4-bit output grainier,
+  not better (flat-field sigma 5.06 to 16.07 from 4 to 50 steps). The whole effect traced to the
+  adaLN modulation layers; `-q 4` now keeps `img_mod_linear` at 8-bit (~1.8 GB), restoring the
+  full-q8 noise floor (sigma 1.10/1.37). Edit and Flash inherit it; mixed saves round-trip
+  pixel-identically via per-layer bits inference on load.
+
 ### 0.18.37-CV
 
 - **Fix: Klein edit stretched reference images whenever aspects differed** (upstream
@@ -47,6 +56,9 @@ goes to their authors.
 - **Releases can publish to PyPI via trusted publishing (OIDC)**, gated by a repository variable
   until the PyPI side is configured; the manual path keeps working.
 
+<details>
+<summary><b>Older releases (0.18.1 to 0.18.36)</b></summary>
+
 ### 0.18.36-CV
 
 - **New model: nvidia/Qwen-Image-Flash** (`--model qwen-image-flash`): the DMD2 4-step distillation
@@ -57,9 +69,6 @@ goes to their authors.
   near-black references no longer fail on 1-2 count noise; `MFLUX_IMAGE_ALLCLOSE_ATOL` overrides.
 - **`--no-metadata`** (upstream [#437](https://github.com/filipstrand/mflux/issues/437)): opt out of
   embedding generation parameters in the output image.
-
-<details>
-<summary><b>Older releases (0.18.1 to 0.18.35)</b></summary>
 
 ### 0.18.35-CV
 

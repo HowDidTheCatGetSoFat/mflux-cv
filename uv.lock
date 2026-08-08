@@ -1039,7 +1039,7 @@ wheels = [
 
 [[package]]
 name = "mflux-cv"
-version = "0.18.37"
+version = "0.18.38"
 source = { editable = "." }
 dependencies = [
     { name = "filelock" },

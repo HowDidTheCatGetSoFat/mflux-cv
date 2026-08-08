@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.38] - 2026-08-08
+
+### 🐛 Fixes
+
+- **Qwen-Image 4-bit no longer accumulates quantization noise across steps** (upstream [#484](https://github.com/filipstrand/mflux/issues/484)): at uniform q4, flat-field noise grows monotonically with step count (sigma 5.06 to 16.07 from 4 to 50 steps on Qwen-Image-2512) and the practical step optimum collapses. Bisection showed the whole effect lives in the adaLN modulation producers: `-q 4` now keeps the 60 `img_mod_linear` layers at 8-bit (~1.8 GB extra), which restores the global-q8 noise floor exactly (sigma 1.10/1.37 at 20/50 steps vs 1.15/1.31 for full q8). Same protected-layer choice as upstream [#420](https://github.com/filipstrand/mflux/pull/420), so saves interoperate; qwen-edit and qwen-image-flash share the definition and inherit the fix. On the loading side, stored quantized models are reconstructed at the exact per-layer bits and group size inferred from the saved shapes plus the module's true input dimension, so mixed saves round-trip pixel-identically (verified: 26 GB save, mean abs diff 0.0) and uniform saves load exactly as before. (#60)
+
 ## [0.18.37] - 2026-08-07
 
 ### 🐛 Fixes
