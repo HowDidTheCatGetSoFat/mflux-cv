@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from mflux.models.common.weights.loading.weight_definition import WeightDefinitionType
 
 _INFERABLE_BITS = {2, 3, 4, 5, 6, 8}
+_INFERABLE_GROUP_SIZES = {32, 64, 128}
 
 
 class WeightApplier:
@@ -45,11 +46,14 @@ class WeightApplier:
         return current
 
     @staticmethod
-    def _stored_layer_predicate(component_weights, base_predicate, group_size: int):
-        # Pre-structure each layer at the precision it was actually saved with,
-        # read off the stored scales/weight shapes. Uniform saves resolve to the
-        # global level as before; mixed saves (per-layer bits) reconstruct
-        # correctly instead of failing shape validation on update.
+    def _stored_layer_predicate(component_weights, base_predicate):
+        # Pre-structure each layer at the precision it was actually saved with.
+        # The unquantized module still carries the true input dimension, so both
+        # bits and group size are recovered exactly from the stored shapes
+        # (packed weight is input_dims * bits / 32 wide, scales is
+        # input_dims / group_size wide) with no assumption about either.
+        # Uniform saves resolve to the global level as before; mixed saves
+        # reconstruct correctly instead of failing shape validation on update.
         def predicate(path: str, module):
             base = base_predicate(path, module) if base_predicate else hasattr(module, "to_quantized")
             if not base:
@@ -57,17 +61,19 @@ class WeightApplier:
             scales = WeightApplier._nested_get(component_weights, f"{path}.scales")
             if scales is None:
                 return False  # layer was saved unquantized
-            weight = WeightApplier._nested_get(component_weights, f"{path}.weight")
-            weight_shape = getattr(weight, "shape", None)
+            stored_weight = WeightApplier._nested_get(component_weights, f"{path}.weight")
+            stored_shape = getattr(stored_weight, "shape", None)
             scales_shape = getattr(scales, "shape", None)
-            if not weight_shape or not scales_shape:
+            module_shape = getattr(getattr(module, "weight", None), "shape", None)
+            if not stored_shape or not scales_shape or not module_shape:
                 return base
-            input_dims = scales_shape[-1] * group_size
-            if input_dims == 0:
+            input_dims = module_shape[-1]
+            if input_dims == 0 or scales_shape[-1] == 0:
                 return base
-            inferred = weight_shape[-1] * 32 / input_dims
-            if inferred in _INFERABLE_BITS:
-                return {"bits": int(inferred), "group_size": group_size}
+            bits = stored_shape[-1] * 32 / input_dims
+            group_size = input_dims / scales_shape[-1]
+            if bits in _INFERABLE_BITS and group_size in _INFERABLE_GROUP_SIZES:
+                return {"bits": int(bits), "group_size": int(group_size)}
             return base
 
         return predicate
@@ -107,9 +113,7 @@ class WeightApplier:
                 nn.quantize(model, class_predicate=quantization_predicate, bits=bits)
         else:
             if not component.skip_quantization:
-                stored_predicate = WeightApplier._stored_layer_predicate(
-                    component_weights, quantization_predicate, group_size=64
-                )
+                stored_predicate = WeightApplier._stored_layer_predicate(component_weights, quantization_predicate)
                 nn.quantize(model, class_predicate=stored_predicate, bits=bits)
             WeightApplier._validate_native_component(weights, component.name, model, component_weights)
             model.update(component_weights, strict=False)
@@ -192,9 +196,7 @@ class WeightApplier:
                 model.update(component_weights, strict=False)
                 nn.quantize(model, class_predicate=comp_predicate, bits=comp_bits)
             else:
-                stored_predicate = WeightApplier._stored_layer_predicate(
-                    component_weights, comp_predicate, group_size=64
-                )
+                stored_predicate = WeightApplier._stored_layer_predicate(component_weights, comp_predicate)
                 nn.quantize(model, class_predicate=stored_predicate, bits=comp_bits)
                 model.update(component_weights, strict=False)
 
@@ -278,9 +280,7 @@ class WeightApplier:
                 if component is not None and component.weight_subkey is not None and component_weights is not None:
                     component_weights = component_weights.get(component.weight_subkey, component_weights)
                 if component_weights is not None:
-                    model_predicate = WeightApplier._stored_layer_predicate(
-                        component_weights, predicate, group_size=group_size
-                    )
+                    model_predicate = WeightApplier._stored_layer_predicate(component_weights, predicate)
             nn.quantize(
                 model,
                 group_size=group_size,

@@ -85,7 +85,7 @@ class TestStoredLayerPredicate:
         component_weights = saved.parameters()
 
         fresh = SmallModel()
-        stored_predicate = WeightApplier._stored_layer_predicate(component_weights, None, group_size=64)
+        stored_predicate = WeightApplier._stored_layer_predicate(component_weights, None)
         nn.quantize(fresh, bits=4, class_predicate=stored_predicate)
 
         for block in fresh.transformer_blocks:
@@ -107,7 +107,7 @@ class TestStoredLayerPredicate:
         component_weights = saved.parameters()
 
         fresh = SmallModel()
-        stored_predicate = WeightApplier._stored_layer_predicate(component_weights, None, group_size=64)
+        stored_predicate = WeightApplier._stored_layer_predicate(component_weights, None)
         nn.quantize(fresh, bits=4, class_predicate=stored_predicate)
 
         for block in fresh.transformer_blocks:
@@ -126,7 +126,7 @@ class TestStoredLayerPredicate:
         component_weights = saved.parameters()
 
         fresh = SmallModel()
-        stored_predicate = WeightApplier._stored_layer_predicate(component_weights, None, group_size=64)
+        stored_predicate = WeightApplier._stored_layer_predicate(component_weights, None)
         nn.quantize(fresh, bits=4, class_predicate=stored_predicate)
 
         assert not hasattr(fresh.proj_out, "bits")
@@ -141,7 +141,66 @@ class TestStoredLayerPredicate:
 
         fresh = SmallModel()
         stored_predicate = WeightApplier._stored_layer_predicate(
-            component_weights, lambda p, m: hasattr(m, "to_quantized"), group_size=64
+            component_weights, lambda p, m: hasattr(m, "to_quantized")
         )
         nn.quantize(fresh, bits=4, class_predicate=stored_predicate)
         assert not hasattr(fresh.norm, "bits")
+
+
+@pytest.mark.fast
+class TestStoredLayerGroupSizes:
+    def test_group_size_32_save_reconstructs_exactly(self):
+        saved = SmallModel()
+        nn.quantize(saved, bits=4, group_size=32, class_predicate=lambda p, m: hasattr(m, "to_quantized"))
+        component_weights = saved.parameters()
+
+        fresh = SmallModel()
+        stored_predicate = WeightApplier._stored_layer_predicate(component_weights, None)
+        nn.quantize(fresh, bits=4, class_predicate=stored_predicate)
+
+        for block in fresh.transformer_blocks:
+            assert block.img_mod_linear.bits == 4
+            assert block.img_mod_linear.group_size == 32
+        fresh.update(component_weights, strict=False)
+        x = mx.random.normal((2, 64))
+        assert mx.array_equal(saved.proj_out(x), fresh.proj_out(x))
+
+    def test_mixed_group_sizes_reconstruct_per_layer(self):
+        saved = SmallModel()
+
+        def predicate(path, module):
+            if not hasattr(module, "to_quantized"):
+                return False
+            if ".img_mod_linear" in path:
+                return {"bits": 8, "group_size": 32}
+            return True
+
+        nn.quantize(saved, bits=4, class_predicate=predicate)
+        component_weights = saved.parameters()
+
+        fresh = SmallModel()
+        stored_predicate = WeightApplier._stored_layer_predicate(component_weights, None)
+        nn.quantize(fresh, bits=4, class_predicate=stored_predicate)
+
+        block = fresh.transformer_blocks[0]
+        assert block.img_mod_linear.bits == 8
+        assert block.img_mod_linear.group_size == 32
+        assert block.attn_proj.bits == 4
+        assert block.attn_proj.group_size == 64
+        fresh.update(component_weights, strict=False)
+        x = mx.random.normal((2, 64))
+        expected = saved.transformer_blocks[0].img_mod_linear(x)
+        actual = fresh.transformer_blocks[0].img_mod_linear(x)
+        assert mx.array_equal(expected, actual)
+
+    def test_unparseable_shapes_fall_back_to_global_level(self):
+        saved = SmallModel()
+        nn.quantize(saved, bits=4, class_predicate=lambda p, m: hasattr(m, "to_quantized"))
+        component_weights = saved.parameters()
+        # Corrupt one layer's scales so neither bits nor group size resolve.
+        component_weights["proj_out"]["scales"] = mx.zeros((64, 3))
+
+        fresh = SmallModel()
+        stored_predicate = WeightApplier._stored_layer_predicate(component_weights, None)
+        nn.quantize(fresh, bits=4, class_predicate=stored_predicate)
+        assert fresh.proj_out.bits == 4
