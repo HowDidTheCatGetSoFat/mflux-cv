@@ -702,6 +702,7 @@ Still open upstream, running here because this build pulled them in. Each is des
 | Model | Component | Contributor | PR |
 |---|---|---|---|
 | Qwen-Image-Layered | | [@ZimengXiong](https://github.com/ZimengXiong) | [#302](https://github.com/filipstrand/mflux/pull/302) |
+| Qwen | q4 protected-layer choice (`img_mod_linear` at 8-bit) | [@lpalbou](https://github.com/lpalbou) | [#420](https://github.com/filipstrand/mflux/pull/420) |
 | | LyCORIS LoKr | [@JanGrohn](https://github.com/JanGrohn) | [#422](https://github.com/filipstrand/mflux/pull/422) |
 | FLUX.2 | mixed-quant inference | [@ianscrivener](https://github.com/ianscrivener) | [#436](https://github.com/filipstrand/mflux/pull/436) |
 | Ideogram 4 | mlx-forge checkpoint loading | [@plz12345](https://github.com/plz12345) | [#445](https://github.com/filipstrand/mflux/pull/445) |
@@ -723,6 +724,7 @@ Written in this build:
 | Z-Image | ControlNet: Union (canny/mlsd/depth/hed/pose) | [@fxd0h](https://github.com/fxd0h) | mirrored upstream as [#482](https://github.com/filipstrand/mflux/pull/482) |
 | Krea 2 | ControlNet: Depth | [@fxd0h](https://github.com/fxd0h) | this build only, no upstream PR |
 | Qwen VAE | native save/load shape fix | [@fortinmike](https://github.com/fortinmike) | [mflux-cv#33](https://github.com/HowDidTheCatGetSoFat/mflux-cv/pull/33) |
+| Qwen | mixed-precision `-q 4` (step-noise fix) + per-layer bits on save loading | [@fxd0h](https://github.com/fxd0h) | [mflux-cv#60](https://github.com/HowDidTheCatGetSoFat/mflux-cv/pull/60), measured in upstream [#484](https://github.com/filipstrand/mflux/issues/484) |
 | FLUX.1 | multi-ControlNet stacking | [@fxd0h](https://github.com/fxd0h) | this build only |
 | | training suite (DoRA, LR schedules, optimizers, LoRA alpha, grad clipping/accumulation) | [@fxd0h](https://github.com/fxd0h) | open upstream as [#442](https://github.com/filipstrand/mflux/pull/442), [#447](https://github.com/filipstrand/mflux/pull/447), [#448](https://github.com/filipstrand/mflux/pull/448), [#449](https://github.com/filipstrand/mflux/pull/449), [#450](https://github.com/filipstrand/mflux/pull/450), [#451](https://github.com/filipstrand/mflux/pull/451), [#452](https://github.com/filipstrand/mflux/pull/452), [#464](https://github.com/filipstrand/mflux/pull/464) |
 | Ideogram 4 | LoRA inference fixes (uncond routing, fp8 bake, CFG truncation) | [@fxd0h](https://github.com/fxd0h) | open upstream as [#439](https://github.com/filipstrand/mflux/pull/439), [#440](https://github.com/filipstrand/mflux/pull/440), [#441](https://github.com/filipstrand/mflux/pull/441) |

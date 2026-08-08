@@ -247,7 +247,7 @@ image.save("qwen_edit_monkey.png")
 2. **Pose Maintenance**: Explicitly mention maintaining poses, body positions, or overall stance when you want to preserve the original structure
 3. **Single Focus**: Focus on one or a few related edits at a time for more predictable results
 4. **LoRA Combinations**: Combine multiple LoRAs for complex effects (e.g., fast generation + camera control)
-5. **Quantization**: 6-bit or below can degrade the image a lot more compared to Flux, use with caution
+5. **Quantization**: since 0.18.38-CV, `-q 4` keeps the adaLN modulation layers (`img_mod_linear`) at 8-bit, which removes the step-noise accumulation that used to make 4-bit output grainier as steps increased (upstream [#484](https://github.com/filipstrand/mflux/issues/484)). 3-bit still degrades a lot, use with caution
 6. **Seed Variation**: Qwen models typically do not vary much with seed changes. If you want more variation, vary the prompt instead
 7. **Image Quality**: Qwen images come out quite soft compared to Flux models
 
