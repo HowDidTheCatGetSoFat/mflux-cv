@@ -1,3 +1,4 @@
+import inspect
 from typing import TYPE_CHECKING
 
 import mlx.nn as nn
@@ -10,8 +11,67 @@ from mflux.models.common.weights.loading.weight_definition import ComponentDefin
 if TYPE_CHECKING:
     from mflux.models.common.weights.loading.weight_definition import WeightDefinitionType
 
+_INFERABLE_BITS = {2, 3, 4, 5, 6, 8}
+
 
 class WeightApplier:
+    @staticmethod
+    def _predicate_with_bits(predicate, bits: int | None):
+        # Definition predicates may take (path, module) or (path, module, bits).
+        # The three-argument form lets a family vary per-layer precision with the
+        # requested level (e.g. Qwen protects img_mod_linear only at 4-bit).
+        if predicate is None:
+            return None
+        try:
+            parameters = inspect.signature(predicate).parameters
+        except (TypeError, ValueError):
+            return predicate
+        if len(parameters) < 3:
+            return predicate
+        return lambda path, module: predicate(path, module, bits)
+
+    @staticmethod
+    def _nested_get(weights, path: str):
+        current = weights
+        for part in path.split("."):
+            if isinstance(current, list):
+                if not part.isdigit() or int(part) >= len(current):
+                    return None
+                current = current[int(part)]
+            elif isinstance(current, dict) and part in current:
+                current = current[part]
+            else:
+                return None
+        return current
+
+    @staticmethod
+    def _stored_layer_predicate(component_weights, base_predicate, group_size: int):
+        # Pre-structure each layer at the precision it was actually saved with,
+        # read off the stored scales/weight shapes. Uniform saves resolve to the
+        # global level as before; mixed saves (per-layer bits) reconstruct
+        # correctly instead of failing shape validation on update.
+        def predicate(path: str, module):
+            base = base_predicate(path, module) if base_predicate else hasattr(module, "to_quantized")
+            if not base:
+                return False
+            scales = WeightApplier._nested_get(component_weights, f"{path}.scales")
+            if scales is None:
+                return False  # layer was saved unquantized
+            weight = WeightApplier._nested_get(component_weights, f"{path}.weight")
+            weight_shape = getattr(weight, "shape", None)
+            scales_shape = getattr(scales, "shape", None)
+            if not weight_shape or not scales_shape:
+                return base
+            input_dims = scales_shape[-1] * group_size
+            if input_dims == 0:
+                return base
+            inferred = weight_shape[-1] * 32 / input_dims
+            if inferred in _INFERABLE_BITS:
+                return {"bits": int(inferred), "group_size": group_size}
+            return base
+
+        return predicate
+
     @staticmethod
     def apply_and_quantize_single(
         weights: LoadedWeights,
@@ -36,6 +96,8 @@ class WeightApplier:
         if warning:
             print(f"⚠️  {warning}")
 
+        quantization_predicate = WeightApplier._predicate_with_bits(quantization_predicate, bits)
+
         if bits is None:
             WeightApplier._validate_native_component(weights, component.name, model, component_weights)
             model.update(component_weights, strict=False)
@@ -45,7 +107,10 @@ class WeightApplier:
                 nn.quantize(model, class_predicate=quantization_predicate, bits=bits)
         else:
             if not component.skip_quantization:
-                nn.quantize(model, class_predicate=quantization_predicate, bits=bits)
+                stored_predicate = WeightApplier._stored_layer_predicate(
+                    component_weights, quantization_predicate, group_size=64
+                )
+                nn.quantize(model, class_predicate=stored_predicate, bits=bits)
             WeightApplier._validate_native_component(weights, component.name, model, component_weights)
             model.update(component_weights, strict=False)
 
@@ -84,7 +149,7 @@ class WeightApplier:
             WeightApplier._set_weights(weights, models, components)
             WeightApplier._quantize(models, bits, components, weight_definition)
         else:
-            WeightApplier._quantize(models, bits, components, weight_definition)
+            WeightApplier._quantize(models, bits, components, weight_definition, weights=weights)
             WeightApplier._set_weights(weights, models, components)
 
         return bits
@@ -120,13 +185,17 @@ class WeightApplier:
             if component and component.weight_subkey is not None:
                 component_weights = component_weights.get(component.weight_subkey, component_weights)
 
+            comp_predicate = WeightApplier._predicate_with_bits(weight_definition.quantization_predicate, comp_bits)
             if comp_bits is None:
                 model.update(component_weights, strict=False)
             elif comp_stored is None:
                 model.update(component_weights, strict=False)
-                nn.quantize(model, class_predicate=weight_definition.quantization_predicate, bits=comp_bits)
+                nn.quantize(model, class_predicate=comp_predicate, bits=comp_bits)
             else:
-                nn.quantize(model, class_predicate=weight_definition.quantization_predicate, bits=comp_bits)
+                stored_predicate = WeightApplier._stored_layer_predicate(
+                    component_weights, comp_predicate, group_size=64
+                )
+                nn.quantize(model, class_predicate=stored_predicate, bits=comp_bits)
                 model.update(component_weights, strict=False)
 
             bits_seen.add(comp_bits)
@@ -193,17 +262,28 @@ class WeightApplier:
         bits: int,
         components: dict,
         weight_definition: "WeightDefinitionType",
+        weights: LoadedWeights | None = None,
     ) -> None:
         # Models whose dims are not divisible by 64 (e.g. Boogu's 3360 hidden size)
         # can opt into a smaller group size; defaults to MLX's 64 for every other model.
         group_size = getattr(weight_definition, "quantization_group_size", 64)
+        predicate = WeightApplier._predicate_with_bits(weight_definition.quantization_predicate, bits)
         for name, model in models.items():
             component = components.get(name)
             if component and component.skip_quantization:
                 continue
+            model_predicate = predicate
+            if weights is not None:
+                component_weights = weights.components.get(name)
+                if component is not None and component.weight_subkey is not None and component_weights is not None:
+                    component_weights = component_weights.get(component.weight_subkey, component_weights)
+                if component_weights is not None:
+                    model_predicate = WeightApplier._stored_layer_predicate(
+                        component_weights, predicate, group_size=group_size
+                    )
             nn.quantize(
                 model,
                 group_size=group_size,
-                class_predicate=weight_definition.quantization_predicate,
+                class_predicate=model_predicate,
                 bits=bits,
             )
